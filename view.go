@@ -17,6 +17,12 @@ func (m model) View() string {
 	b.WriteString(m.renderTabBar())
 	b.WriteString("\n")
 
+	// Completion banner (when finished)
+	if m.status == statusFinished {
+		b.WriteString(m.renderCompletionBanner())
+		b.WriteString("\n")
+	}
+
 	// Status bar
 	b.WriteString(m.renderStatusBar())
 	b.WriteString("\n")
@@ -174,6 +180,14 @@ func (m model) buildAnalyticsData() screens.AnalyticsData {
 		LastTask:           m.analytics.lastTask(),
 		IterationHistory:   history,
 	}
+}
+
+func (m model) renderCompletionBanner() string {
+	message := "✓ LOOP COMPLETE - All work finished"
+	if m.iteration >= m.maxIter && !m.loopDone {
+		message = "✓ LOOP COMPLETE - Max iterations reached"
+	}
+	return completionBannerStyle.Width(m.width).Render(message)
 }
 
 func (m model) renderHelpBar() string {

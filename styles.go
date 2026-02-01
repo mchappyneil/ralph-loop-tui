@@ -103,6 +103,16 @@ var (
 			Bold(true)
 )
 
+// Completion banner style
+var (
+	completionBannerStyle = lipgloss.NewStyle().
+				Bold(true).
+				Foreground(lipgloss.Color("255")).
+				Background(successColor).
+				Padding(0, 2).
+				Align(lipgloss.Center)
+)
+
 // Content styles
 var (
 	iterationHeaderStyle = lipgloss.NewStyle().
