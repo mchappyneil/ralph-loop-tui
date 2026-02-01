@@ -17,12 +17,16 @@ go build
 
 # Run with custom settings
 ./ralph-loop-go -max-iterations 100 -sleep-seconds 5 -claude-bin /path/to/claude
+
+# Filter to specific epic (prevents collision with other agents)
+./ralph-loop-go -epic BD-42
 ```
 
 **Flags:**
 - `-max-iterations` (default: 50) - Maximum loop iterations
 - `-sleep-seconds` (default: 2) - Sleep between iterations
 - `-claude-bin` (default: "claude") - Path to Claude CLI
+- `-epic` (default: "") - Filter to tasks within a specific epic
 
 ## Architecture
 
@@ -30,41 +34,68 @@ go build
 
 The app uses Charm's Bubble Tea framework with the Elm architecture:
 
-1. **Model** (`model` struct) - Holds all application state including iteration count, status, viewport, and Claude process context
-2. **Update** (`Update()`) - Message handler that processes keyboard input, iteration events, and Claude command results
-3. **View** (`View()`) - Renders status bar and scrollable viewport
+1. **Model** (`model.go`) - All application state including iteration tracking, screen state, viewports, analytics, and Claude execution context
+2. **Update** (`update.go`) - Message handler for keyboard input, iteration events, and Claude command results
+3. **View** (`view.go`) - Renders tab bar, status bar, screen content, and help bar
 
 ### Message Flow
 
 ```
-startIterationMsg → runClaudeCmd() → claudeDoneMsg → [next iteration or finish]
-                                                   ↓
-                                    Check for <promise>COMPLETE</promise>
+startIterationMsg → runClaudeCmd() → claudeOutputLineMsg (streaming) → claudeDoneMsg → [next iteration or finish]
+                                                                        ↓
+                                                         Check for <promise>COMPLETE</promise>
 ```
+
+### Screen Architecture
+
+Three switchable screens (Tab/1/2/3 to navigate):
+
+1. **Homebase** (`screens/homebase.go`) - Iteration logs and Ralph activity summary
+2. **Output** (`screens/output.go`) - Claude output with raw/parsed toggle (r key) and follow mode (f key)
+3. **Analytics** (`screens/analytics.go`) - Dashboard with progress, timing, task tracking, and iteration history
 
 ### Key Components
 
 - **Status tracking**: `iterationStatus` enum (idle/running/completed/error/finished)
-- **Viewport**: Scrollable content area showing iteration logs and Claude output
+- **JSON parsing** (`jsonparser.go`): Parses Claude's stream-json output, extracts tool calls/results/text
+- **Analytics** (`analytics.go`): Tracks session statistics, iteration history, duration metrics
+- **Styles** (`styles.go`): Centralized lipgloss styling definitions
 - **Context cancellation**: Graceful shutdown on q/ctrl+c/esc
 
 ### Ralph Agent Protocol
 
 Each iteration runs Claude with a prompt that:
-1. Uses Beads to find ready tasks (no blockers)
+1. Uses Beads to find ready tasks (no blockers), optionally filtered by epic
 2. Implements ONE task
 3. Runs tests/type checks
 4. Closes task and commits if passing, or updates notes if failing
 5. Outputs `<promise>COMPLETE</promise>` when no ready work remains
 
+Ralph must output a status block at the end of each response:
+```
+[Ralph status]
+ready_before: <count>
+ready_after: <count>
+task: <task-id>
+tests: PASSED|FAILED
+notes: <summary>
+```
+
 ## Code Organization
 
-Single `main.go` file (~330 lines) containing:
-- Lines 1-50: Imports, types, constants
-- Lines 51-150: Model initialization and Bubble Tea lifecycle (Init/Update/View)
-- Lines 151-250: UI rendering (statusBar, appendLine)
-- Lines 251-320: Claude execution (runClaudeCmd, buildPrompt)
-- Lines 321-330: main() entry point
+```
+├── main.go           # Entry point, CLI flags, runClaudeCmd, buildPrompt
+├── model.go          # Model struct, message types, initialModel
+├── update.go         # Init(), Update() message handler
+├── view.go           # View() rendering, tab/status/help bars
+├── styles.go         # lipgloss style definitions
+├── analytics.go      # analyticsData, iterationRecord, RalphStatus parsing
+├── jsonparser.go     # Claude stream-json parsing (ParseStreamLine, ExtractFullText)
+└── screens/
+    ├── homebase.go   # Homebase screen renderer
+    ├── output.go     # Output screen renderer with follow/raw toggles
+    └── analytics.go  # Analytics dashboard with 4-panel layout
+```
 
 ## Testing
 
@@ -72,3 +103,4 @@ No tests exist yet. When adding tests:
 - Use `testing.Short()` for tests requiring external services (per user's CLAUDE.md)
 - Test the message flow and state transitions
 - Mock `exec.CommandContext` for Claude CLI interactions
+- Test JSON parsing with sample stream-json output

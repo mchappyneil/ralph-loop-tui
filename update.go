@@ -109,7 +109,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.appendHomebase(fmt.Sprintf("Start: %s", m.startTime.Format(time.RFC3339)))
 		m.appendHomebase("Running Claude with stream-json...")
 
-		return m, runClaudeCmd(m.ctx, m.claudePath, buildPrompt())
+		return m, runClaudeCmd(m.ctx, m.claudePath, buildPrompt(m.epic))
 
 	case claudeOutputLineMsg:
 		// Handle streaming output - parse and display each line as it arrives

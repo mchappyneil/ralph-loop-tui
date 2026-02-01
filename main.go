@@ -16,6 +16,7 @@ var (
 	maxIterations = flag.Int("max-iterations", 50, "Maximum iterations to run")
 	sleepSeconds  = flag.Int("sleep-seconds", 2, "Seconds to sleep between iterations")
 	claudeBin     = flag.String("claude-bin", "claude", "Path to claude CLI")
+	epicFilter    = flag.String("epic", "", "Filter to tasks within a specific epic (e.g., BD-42)")
 )
 
 // Global program reference for sending messages from goroutines
@@ -96,15 +97,26 @@ func runClaudeCmd(ctx context.Context, claudePath, prompt string) tea.Cmd {
 }
 
 // Prompt: Beads/AGENTS work is done entirely inside Claude.
-func buildPrompt() string {
-	return `You are Ralph, an autonomous coding agent working in a codebase that uses **Beads** (steveyegge/beads) as its issue tracker and memory system.
+func buildPrompt(epic string) string {
+	// Build the bd ready command with optional epic filter
+	bdReadyCmd := "bd ready --json"
+	if epic != "" {
+		bdReadyCmd = fmt.Sprintf("bd ready --parent %s --json", epic)
+	}
 
-All Beads operations (bd ready, bd show, bd update, bd close, etc.) are your responsibility, inside this Claude invocation. The outer TUI only calls you in a loop.
+	epicNote := ""
+	if epic != "" {
+		epicNote = fmt.Sprintf("\n\n**IMPORTANT**: You are scoped to epic %s. Only work on tasks within this epic.", epic)
+	}
+
+	return fmt.Sprintf(`You are Ralph, an autonomous coding agent working in a codebase that uses **Beads** (steveyegge/beads) as its issue tracker and memory system.
+
+All Beads operations (bd ready, bd show, bd update, bd close, etc.) are your responsibility, inside this Claude invocation. The outer TUI only calls you in a loop.%s
 
 Your job in each iteration:
 
 1. Find the next **doable** item of work with Beads:
-   - Run: bd ready --json
+   - Run: %s
    - Choose the highest-priority READY task according to Beads (P0 > P1 > P2 > P3 > P4, then epic priority / created time tiebreakers).
    - Call the selected task T.
 
@@ -132,7 +144,7 @@ Your job in each iteration:
 
 6. End condition:
    - After finishing work on T and updating Beads:
-     - Run bd ready --json again.
+     - Run %s again.
      - If there are NO READY issues left for this codebase:
        - Output exactly: <promise>COMPLETE</promise>
        - Also include a brief summary of remaining non-ready work or blockers.
@@ -146,5 +158,5 @@ ready_before: <integer count from bd ready before you picked T>
 ready_after: <integer count from bd ready after you finish>
 task: <T>
 tests: <PASSED or FAILED>
-notes: <1-2 sentence summary>`
+notes: <1-2 sentence summary>`, epicNote, bdReadyCmd, bdReadyCmd)
 }

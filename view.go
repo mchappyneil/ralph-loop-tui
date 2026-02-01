@@ -108,6 +108,14 @@ func (m model) renderStatusBar() string {
 		statusValueStyle.Render(totalElapsed),
 	)
 
+	// Add epic filter if set
+	if m.epic != "" {
+		content += fmt.Sprintf(" | %s %s",
+			statusLabelStyle.Render("Epic:"),
+			statusValueStyle.Render(m.epic),
+		)
+	}
+
 	return statusBarStyle.Width(m.width).Render(content)
 }
 

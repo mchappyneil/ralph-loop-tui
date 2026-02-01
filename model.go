@@ -88,6 +88,7 @@ type model struct {
 	claudePath string
 	sleep      time.Duration
 	loopDone   bool
+	epic       string // Filter to tasks within a specific epic
 
 	// Context for cancellation
 	ctx    context.Context
@@ -122,6 +123,7 @@ func initialModel() model {
 		sessionStart:    time.Now(),
 		claudePath:      *claudeBin,
 		sleep:           time.Duration(*sleepSeconds) * time.Second,
+		epic:            *epicFilter,
 		ctx:             ctx,
 		cancel:          cancel,
 	}
