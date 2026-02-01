@@ -23,6 +23,11 @@ func tick() tea.Cmd {
 	})
 }
 
+// ringBell sends terminal bell character to notify user
+func ringBell() tea.Cmd {
+	return tea.Printf("\a")
+}
+
 // Update handles all messages
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
@@ -87,7 +92,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.loopDone || m.iteration >= m.maxIter {
 			m.status = statusFinished
 			m.statusText = "Finished (max iterations or COMPLETE)"
-			return m, nil
+			return m, ringBell()
 		}
 		m.iteration++
 		m.startTime = time.Now()
@@ -208,7 +213,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.status = statusFinished
 			m.statusText = "Ralph reported COMPLETE"
 			m.appendHomebase("Ralph reported <promise>COMPLETE</promise>. Loop finished.")
-			return m, nil
+			return m, ringBell()
 		}
 
 		// Schedule next iteration after sleep
