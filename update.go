@@ -222,7 +222,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		})
 
 	case tickMsg:
-		cmds = append(cmds, tick())
+		// Only continue ticking if the loop is still running
+		if m.status != statusFinished {
+			cmds = append(cmds, tick())
+		}
 	}
 
 	// Update the active viewport

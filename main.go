@@ -142,14 +142,18 @@ Your job in each iteration:
      - What failed (error messages, failing tests)
      - What you think needs to change on the next iteration.
 
-6. End condition:
-   - After finishing work on T and updating Beads:
-     - Run %s again.
-     - If there are NO READY issues left for this codebase:
+6. End condition - CRITICAL:
+   - After finishing work on T (either closing it or updating notes on failure):
+     - Run %s again to get the current ready count.
+     - If there are NO READY issues left:
        - Output exactly: <promise>COMPLETE</promise>
-       - Also include a brief summary of remaining non-ready work or blockers.
+       - Include a brief summary of remaining non-ready work or blockers.
      - If READY work remains:
-       - Just end your response normally; the outer loop will call you again.
+       - Output your [Ralph status] block.
+       - STOP IMMEDIATELY. Do NOT pick up another task. Do NOT continue working.
+       - The outer loop will invoke you again for the next task.
+
+   **IMPORTANT**: You must complete exactly ONE task per invocation, then STOP. Even if more work is ready, you must exit so the outer loop can track progress and call you again. Working on multiple tasks in one invocation breaks the monitoring system.
 
 For operator observability, in every iteration you MUST include at the end of your response a short status block like:
 
