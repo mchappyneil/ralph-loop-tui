@@ -9,7 +9,6 @@ var (
 	accentColor    = lipgloss.Color("86")  // Cyan
 	successColor   = lipgloss.Color("82")  // Green
 	errorColor     = lipgloss.Color("196") // Red
-	warningColor   = lipgloss.Color("214") // Orange
 )
 
 // Tab bar styles
@@ -75,34 +74,6 @@ var (
 			Foreground(secondaryColor)
 )
 
-// Analytics panel styles
-var (
-	panelBorderStyle = lipgloss.NewStyle().
-				Border(lipgloss.RoundedBorder()).
-				BorderForeground(secondaryColor).
-				Padding(0, 1)
-
-	panelTitleStyle = lipgloss.NewStyle().
-			Bold(true).
-			Foreground(primaryColor).
-			MarginBottom(1)
-
-	statLabelStyle = lipgloss.NewStyle().
-			Foreground(secondaryColor).
-			Width(20)
-
-	statValueStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("252"))
-
-	statPassedStyle = lipgloss.NewStyle().
-			Foreground(successColor).
-			Bold(true)
-
-	statFailedStyle = lipgloss.NewStyle().
-			Foreground(errorColor).
-			Bold(true)
-)
-
 // Completion banner style
 var (
 	completionBannerStyle = lipgloss.NewStyle().
@@ -113,16 +84,3 @@ var (
 				Align(lipgloss.Center)
 )
 
-// Content styles
-var (
-	iterationHeaderStyle = lipgloss.NewStyle().
-				Bold(true).
-				Foreground(primaryColor)
-
-	timestampStyle = lipgloss.NewStyle().
-			Foreground(secondaryColor)
-
-	outputFollowIndicator = lipgloss.NewStyle().
-				Foreground(accentColor).
-				Bold(true)
-)

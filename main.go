@@ -8,15 +8,17 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
 
 var (
-	maxIterations = flag.Int("max-iterations", 50, "Maximum iterations to run")
-	sleepSeconds  = flag.Int("sleep-seconds", 2, "Seconds to sleep between iterations")
-	claudeBin     = flag.String("claude-bin", "claude", "Path to claude CLI")
-	epicFilter    = flag.String("epic", "", "Filter to tasks within a specific epic (e.g., BD-42)")
+	maxIterations   = flag.Int("max-iterations", 50, "Maximum iterations to run")
+	sleepSeconds    = flag.Int("sleep-seconds", 2, "Seconds to sleep between iterations")
+	claudeBin       = flag.String("claude-bin", "claude", "Path to claude CLI")
+	epicFilter      = flag.String("epic", "", "Filter to tasks within a specific epic (e.g., BD-42)")
+	maxReviewCycles = flag.Int("max-review-cycles", 3, "Maximum reviewer/fixer cycles per iteration")
 )
 
 // Global program reference for sending messages from goroutines
@@ -96,8 +98,43 @@ func runClaudeCmd(ctx context.Context, claudePath, prompt string) tea.Cmd {
 	}
 }
 
-// Prompt: Beads/AGENTS work is done entirely inside Claude.
-func buildPrompt(epic string) string {
+// getGitDiff returns the diff of the most recent commit (HEAD~1..HEAD).
+// Used by the reviewer phase to see what dev/fixer actually changed.
+func getGitDiff() (string, error) {
+	cmd := exec.Command("git", "diff", "HEAD~1..HEAD")
+	out, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("git diff: %w", err)
+	}
+	return string(out), nil
+}
+
+// detectSpecialist maps file extensions in a git diff to a reviewer persona.
+// Multiple file types produce a combined persona.
+func detectSpecialist(diff string) string {
+	var personas []string
+	if strings.Contains(diff, ".go") {
+		personas = append(personas, "senior Go engineer, idiomatic Go, concurrency, this codebase")
+	}
+	if strings.Contains(diff, ".tsx") || strings.Contains(diff, ".ts") {
+		personas = append(personas, "senior TypeScript/React engineer")
+	}
+	if strings.Contains(diff, ".py") {
+		personas = append(personas, "senior Python engineer")
+	}
+	if strings.Contains(diff, ".tf") {
+		personas = append(personas, "senior Terraform/infrastructure engineer")
+	}
+	if len(personas) == 0 {
+		return "senior software engineer"
+	}
+	return strings.Join(personas, " and ")
+}
+
+// buildDevPrompt produces the prompt for the developer phase.
+// The developer finds the next ready task, implements it, runs tests, commits if passing.
+// plannerOutput is injected when a preceding planner phase has provided an implementation plan.
+func buildDevPrompt(epic, plannerOutput string) string {
 	// Build the bd ready command with optional epic filter
 	bdReadyCmd := "bd ready --json"
 	if epic != "" {
@@ -109,7 +146,7 @@ func buildPrompt(epic string) string {
 		epicNote = fmt.Sprintf("\n\n**IMPORTANT**: You are scoped to epic %s. Only work on tasks within this epic.", epic)
 	}
 
-	return fmt.Sprintf(`You are Ralph, an autonomous coding agent working in a codebase that uses **Beads** (steveyegge/beads) as its issue tracker and memory system.
+	base := fmt.Sprintf(`You are Ralph, an autonomous coding agent working in a codebase that uses **Beads** (steveyegge/beads) as its issue tracker and memory system.
 
 All Beads operations (bd ready, bd show, bd update, bd close, etc.) are your responsibility, inside this Claude invocation. The outer TUI only calls you in a loop.%s
 
@@ -163,4 +200,112 @@ ready_after: <integer count from bd ready after you finish>
 task: <T>
 tests: <PASSED or FAILED>
 notes: <1-2 sentence summary>`, epicNote, bdReadyCmd, bdReadyCmd)
+	if plannerOutput != "" {
+		base += "\n\nHere is your implementation plan:\n" + plannerOutput
+	}
+	return base
+}
+
+// buildPlannerPrompt produces the prompt for the planner phase.
+// The planner finds the next ready task, analyzes it, and outputs a structured plan.
+// It does NOT write any code — analysis only.
+func buildPlannerPrompt(epic string) string {
+	bdReadyCmd := "bd ready --json"
+	if epic != "" {
+		bdReadyCmd = fmt.Sprintf("bd ready --parent %s --json", epic)
+	}
+
+	epicNote := ""
+	if epic != "" {
+		epicNote = fmt.Sprintf("\n\n**IMPORTANT**: You are scoped to epic %s. Only work on tasks within this epic.", epic)
+	}
+
+	return fmt.Sprintf(`You are the Planner phase of an AI pipeline. Your job is ANALYSIS ONLY — do not write any code or make any commits.%s
+
+Your task:
+
+1. Run: %s
+   Pick the highest-priority READY task (P0 > P1 > P2 > P3 > P4). Call it T.
+
+2. Run: bd show <T> --json
+   Read the full task description, acceptance criteria, and any notes.
+
+3. Produce a structured implementation plan covering:
+   - Approach: how you would implement this
+   - Files to touch: which files need creating or modifying
+   - Edge cases: what could go wrong
+   - Test strategy: what tests to write or run
+
+Output your response in this exact format:
+
+[Planner output]
+task: <T>
+description: <one-line summary of the task>
+plan:
+<your full structured plan here>`, epicNote, bdReadyCmd)
+}
+
+// buildReviewerPrompt produces the prompt for the reviewer phase.
+// The reviewer checks the diff as a specialist and returns APPROVED or CHANGES_REQUESTED.
+func buildReviewerPrompt(plannerOutput, diff, specialist string) string {
+	return fmt.Sprintf(`You are a code reviewer acting as: %s
+
+You are reviewing work done by an AI coding agent. Here is the context for the task that was implemented:
+
+%s
+
+Here is the git diff of the changes made:
+
+%s
+
+Review the diff carefully against the task requirements. Check for:
+- Correctness: does it solve the task as described?
+- Code quality: idiomatic style, naming, structure
+- Tests: are appropriate tests included or run?
+- Edge cases: are obvious failure modes handled?
+
+Output your review in this exact format:
+
+[Reviewer status]
+verdict: APPROVED|CHANGES_REQUESTED
+specialist: %s
+issues:
+- <issue 1, or "none" if approved>
+notes: <1-2 sentence summary>`, specialist, plannerOutput, diff, specialist)
+}
+
+// buildFixerPrompt produces the prompt for the fixer phase.
+// The fixer receives the original plan and reviewer feedback, then fixes the issues and re-commits.
+func buildFixerPrompt(epic, plannerOutput, reviewerFeedback string) string {
+	bdReadyCmd := "bd ready --json"
+	if epic != "" {
+		bdReadyCmd = fmt.Sprintf("bd ready --parent %s --json", epic)
+	}
+
+	return fmt.Sprintf(`You are Ralph, an autonomous coding agent. You are in the FIXER phase.
+
+A reviewer has found issues with your previous implementation. Your job is to fix them and re-commit.
+
+Here is the original implementation plan:
+
+%s
+
+A reviewer found these issues, fix them before re-committing:
+
+%s
+
+Instructions:
+1. Address every issue listed in the reviewer feedback.
+2. Run tests/type checks after making changes.
+3. If tests PASS: commit your fixes with message: fix: address reviewer feedback
+4. If tests FAIL: do NOT commit. Note the failures clearly.
+
+For operator observability, include at the end of your response:
+
+[Ralph status]
+ready_before: <run %s to get count>
+ready_after: <run %s again after work>
+task: <task ID from the plan above>
+tests: <PASSED or FAILED>
+notes: <1-2 sentence summary>`, plannerOutput, reviewerFeedback, bdReadyCmd, bdReadyCmd)
 }
