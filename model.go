@@ -156,6 +156,7 @@ func initialModel() model {
 		claudePath:      *claudeBin,
 		sleep:           time.Duration(*sleepSeconds) * time.Second,
 		epic:            *epicFilter,
+		maxReviewCycles: *maxReviewCycles,
 		ctx:             ctx,
 		cancel:          cancel,
 	}

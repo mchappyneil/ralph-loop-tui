@@ -13,10 +13,11 @@ import (
 )
 
 var (
-	maxIterations = flag.Int("max-iterations", 50, "Maximum iterations to run")
-	sleepSeconds  = flag.Int("sleep-seconds", 2, "Seconds to sleep between iterations")
-	claudeBin     = flag.String("claude-bin", "claude", "Path to claude CLI")
-	epicFilter    = flag.String("epic", "", "Filter to tasks within a specific epic (e.g., BD-42)")
+	maxIterations   = flag.Int("max-iterations", 50, "Maximum iterations to run")
+	sleepSeconds    = flag.Int("sleep-seconds", 2, "Seconds to sleep between iterations")
+	claudeBin       = flag.String("claude-bin", "claude", "Path to claude CLI")
+	epicFilter      = flag.String("epic", "", "Filter to tasks within a specific epic (e.g., BD-42)")
+	maxReviewCycles = flag.Int("max-review-cycles", 3, "Maximum reviewer/fixer cycles per iteration (default 3)")
 )
 
 // Global program reference for sending messages from goroutines
