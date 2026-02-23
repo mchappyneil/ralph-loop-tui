@@ -98,9 +98,15 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.startTime = time.Now()
 		m.endTime = time.Time{}
 		m.status = statusRunning
-		m.statusText = fmt.Sprintf("Running iteration %d", m.iteration)
+		m.statusText = fmt.Sprintf("Iteration %d • planner", m.iteration)
 		m.lastError = ""
 		m.rawOutput = ""
+
+		// Reset phase pipeline state for this iteration
+		m.currentPhase = phasePlanner
+		m.reviewCycle = 0
+		m.plannerOutput = ""
+		m.reviewerFeedback = ""
 
 		// Add iteration header to output screens
 		m.appendOutput(fmt.Sprintf("--- Iteration %d Output ---", m.iteration))
@@ -112,9 +118,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		m.appendHomebase(fmt.Sprintf("\n=== Iteration %d of %d ===", m.iteration, m.maxIter))
 		m.appendHomebase(fmt.Sprintf("Start: %s", m.startTime.Format(time.RFC3339)))
-		m.appendHomebase("Running Claude with stream-json...")
+		m.appendHomebase("Phase: planner")
 
-		return m, runClaudeCmd(m.ctx, m.claudePath, buildDevPrompt(m.epic, ""))
+		return m, runClaudeCmd(m.ctx, m.claudePath, buildPlannerPrompt(m.epic))
 
 	case claudeOutputLineMsg:
 		// Handle streaming output - parse and display each line as it arrives
