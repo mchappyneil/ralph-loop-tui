@@ -162,13 +162,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case claudeDoneMsg:
-		m.endTime = time.Now()
-		m.rawOutput = msg.output
+		m.rawOutput += msg.output
 
 		// Output is already displayed via streaming claudeOutputLineMsg messages
 		// Here we just handle completion: analytics, status parsing, next iteration
 
 		if msg.err != nil {
+			m.endTime = time.Now()
 			m.status = statusError
 			m.statusText = "Error running Claude"
 			m.lastError = msg.err.Error()
@@ -233,7 +233,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.appendHomebase(fmt.Sprintf("Iteration %d complete. Duration: %s | Verdict: %s | Cycles: %d",
 					m.iteration, elapsed.Truncate(time.Second), finalVerdict, m.reviewCycle))
 
-				if strings.Contains(msg.output, "<promise>COMPLETE</promise>") {
+				if strings.Contains(m.rawOutput, "<promise>COMPLETE</promise>") {
 					m.loopDone = true
 					m.status = statusFinished
 					m.statusText = "Ralph reported COMPLETE"
@@ -261,6 +261,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.statusText = fmt.Sprintf("Iteration %d • reviewer (%d/%d)", m.iteration, m.reviewCycle, m.maxReviewCycles)
 			m.appendHomebase(fmt.Sprintf("Phase: reviewer (cycle %d/%d)", m.reviewCycle, m.maxReviewCycles))
 			return m, runClaudeCmd(m.ctx, m.claudePath, buildReviewerPrompt(m.plannerOutput, diff, specialist))
+
+		default:
+			m.status = statusError
+			m.statusText = "Unknown phase"
+			m.lastError = fmt.Sprintf("unexpected phase: %d", m.currentPhase)
+			m.appendHomebase(fmt.Sprintf("Error: unexpected phase %d", m.currentPhase))
 		}
 
 	case tickMsg:
