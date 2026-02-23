@@ -101,14 +101,6 @@ func (a *analyticsData) slowestDuration() time.Duration {
 	return slowest
 }
 
-// lastIterations returns the last n iteration records
-func (a *analyticsData) lastIterations(n int) []iterationRecord {
-	if len(a.iterationHistory) <= n {
-		return a.iterationHistory
-	}
-	return a.iterationHistory[len(a.iterationHistory)-n:]
-}
-
 // lastTask returns the most recent task ID, or empty string if none
 func (a *analyticsData) lastTask() string {
 	if len(a.iterationHistory) == 0 {

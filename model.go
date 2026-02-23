@@ -190,18 +190,6 @@ func (m *model) appendOutput(s string) {
 	}
 }
 
-// currentViewport returns the active screen's viewport
-func (m *model) currentViewport() *viewport.Model {
-	switch m.activeScreen {
-	case screenHomebase:
-		return &m.homebaseVP
-	case screenOutput:
-		return &m.outputVP
-	default:
-		return &m.homebaseVP
-	}
-}
-
 // SetProgram sets the tea.Program reference for sending messages from goroutines
 func (m *model) SetProgram(p *tea.Program) {
 	m.program = p
