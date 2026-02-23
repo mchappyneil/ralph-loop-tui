@@ -192,3 +192,63 @@ func parseRalphStatus(output string) *RalphStatus {
 func extractTextFromStreamJSON(output string) string {
 	return ExtractFullText(output)
 }
+
+// ReviewerStatus holds parsed output from the reviewer phase
+type ReviewerStatus struct {
+	Verdict    string // "APPROVED" or "CHANGES_REQUESTED"
+	Specialist string
+	Issues     []string
+	Notes      string
+}
+
+// parseReviewerStatus extracts the [Reviewer status] block from reviewer phase output.
+// Returns a default APPROVED status if no block is found (avoids getting stuck).
+func parseReviewerStatus(output string) *ReviewerStatus {
+	textContent := extractTextFromStreamJSON(output)
+	if textContent == "" {
+		textContent = output
+	}
+
+	statusBlockRegex := regexp.MustCompile(`(?s)\[Reviewer status\]\s*\n(.*?)(?:\n\n|$)`)
+	match := statusBlockRegex.FindStringSubmatch(textContent)
+	if match == nil {
+		return &ReviewerStatus{Verdict: "APPROVED"}
+	}
+
+	block := match[1]
+	status := &ReviewerStatus{}
+	inIssues := false
+
+	for _, line := range strings.Split(block, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			inIssues = false
+			continue
+		}
+		if inIssues && strings.HasPrefix(line, "- ") {
+			status.Issues = append(status.Issues, strings.TrimPrefix(line, "- "))
+			continue
+		}
+		inIssues = false
+
+		parts := strings.SplitN(line, ":", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		key := strings.TrimSpace(parts[0])
+		value := strings.TrimSpace(parts[1])
+
+		switch key {
+		case "verdict":
+			status.Verdict = strings.ToUpper(value)
+		case "specialist":
+			status.Specialist = value
+		case "issues":
+			inIssues = true
+		case "notes":
+			status.Notes = value
+		}
+	}
+
+	return status
+}
