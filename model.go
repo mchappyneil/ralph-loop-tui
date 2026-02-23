@@ -41,6 +41,31 @@ const (
 	statusFinished  iterationStatus = "finished"
 )
 
+// iterationPhase tracks which phase of the pipeline the current iteration is in
+type iterationPhase int
+
+const (
+	phasePlanner  iterationPhase = iota
+	phaseDev
+	phaseReviewer
+	phaseFixer
+)
+
+func (p iterationPhase) String() string {
+	switch p {
+	case phasePlanner:
+		return "planner"
+	case phaseDev:
+		return "dev"
+	case phaseReviewer:
+		return "reviewer"
+	case phaseFixer:
+		return "fixer"
+	default:
+		return "unknown"
+	}
+}
+
 // Messages
 type startIterationMsg struct{}
 type claudeOutputLineMsg struct {
@@ -89,6 +114,13 @@ type model struct {
 	sleep      time.Duration
 	loopDone   bool
 	epic       string // Filter to tasks within a specific epic
+
+	// Phase pipeline state
+	currentPhase     iterationPhase
+	reviewCycle      int    // current review cycle (1-based)
+	maxReviewCycles  int    // from -max-review-cycles flag
+	plannerOutput    string // stored between planner → dev/reviewer/fixer
+	reviewerFeedback string // stored between reviewer → fixer
 
 	// Context for cancellation
 	ctx    context.Context
