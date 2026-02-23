@@ -101,7 +101,7 @@ func runClaudeCmd(ctx context.Context, claudePath, prompt string) tea.Cmd {
 // getGitDiff returns the diff of the most recent commit (HEAD~1..HEAD).
 // Used by the reviewer phase to see what dev/fixer actually changed.
 func getGitDiff() (string, error) {
-	cmd := exec.Command("git", "diff", "HEAD~1")
+	cmd := exec.Command("git", "diff", "HEAD~1..HEAD")
 	out, err := cmd.Output()
 	if err != nil {
 		return "", fmt.Errorf("git diff: %w", err)
@@ -116,7 +116,7 @@ func detectSpecialist(diff string) string {
 	if strings.Contains(diff, ".go") {
 		personas = append(personas, "senior Go engineer, idiomatic Go, concurrency, this codebase")
 	}
-	if strings.Contains(diff, ".ts") || strings.Contains(diff, ".tsx") {
+	if strings.Contains(diff, ".tsx") || strings.Contains(diff, ".ts") {
 		personas = append(personas, "senior TypeScript/React engineer")
 	}
 	if strings.Contains(diff, ".py") {
