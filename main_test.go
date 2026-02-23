@@ -1,7 +1,6 @@
 package main
 
 import (
-	"strings"
 	"testing"
 )
 
@@ -44,5 +43,3 @@ func TestDetectSpecialist_Unknown(t *testing.T) {
 	}
 }
 
-// Ensure strings package is used (needed for later tasks in this file)
-var _ = strings.Contains
