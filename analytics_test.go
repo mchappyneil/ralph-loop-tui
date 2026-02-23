@@ -20,8 +20,14 @@ notes: Implementation looks clean and correct.
 	if status.Verdict != "APPROVED" {
 		t.Errorf("got verdict %q, want APPROVED", status.Verdict)
 	}
+	if status.Specialist != "senior Go engineer" {
+		t.Errorf("got specialist %q", status.Specialist)
+	}
 	if status.Notes != "Implementation looks clean and correct." {
 		t.Errorf("got notes %q", status.Notes)
+	}
+	if len(status.Issues) != 1 || status.Issues[0] != "none" {
+		t.Errorf("got issues %v, want [\"none\"]", status.Issues)
 	}
 }
 
