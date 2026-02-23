@@ -181,51 +181,87 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
-		m.status = statusCompleted
-		m.statusText = "Iteration completed"
+		switch m.currentPhase {
+		case phasePlanner:
+			m.plannerOutput = ExtractFullText(msg.output)
+			m.currentPhase = phaseDev
+			m.statusText = fmt.Sprintf("Iteration %d • dev", m.iteration)
+			m.appendHomebase("Phase: dev")
+			return m, runClaudeCmd(m.ctx, m.claudePath, buildDevPrompt(m.epic, m.plannerOutput))
 
-		// Parse Ralph status for analytics
-		ralphStatus := parseRalphStatus(msg.output)
-		taskID := ""
-		passed := true
-		notes := ""
+		case phaseDev:
+			diff, _ := getGitDiff()
+			m.currentPhase = phaseReviewer
+			m.reviewCycle = 1
+			specialist := detectSpecialist(diff)
+			m.statusText = fmt.Sprintf("Iteration %d • reviewer (%d/%d)", m.iteration, m.reviewCycle, m.maxReviewCycles)
+			m.appendHomebase(fmt.Sprintf("Phase: reviewer (cycle %d/%d)", m.reviewCycle, m.maxReviewCycles))
+			return m, runClaudeCmd(m.ctx, m.claudePath, buildReviewerPrompt(m.plannerOutput, diff, specialist))
 
-		if ralphStatus != nil {
-			taskID = ralphStatus.Task
-			passed = ralphStatus.Passed
-			notes = ralphStatus.Notes
+		case phaseReviewer:
+			reviewerStatus := parseReviewerStatus(msg.output)
+			approved := reviewerStatus.Verdict == "APPROVED"
+			gaveUp := m.reviewCycle >= m.maxReviewCycles
 
-			// Update ready counts
-			if m.analytics.initialReady == 0 && ralphStatus.ReadyBefore > 0 {
-				m.analytics.initialReady = ralphStatus.ReadyBefore
+			if approved || gaveUp {
+				finalVerdict := "APPROVED"
+				if !approved {
+					finalVerdict = "GAVE_UP"
+				}
+
+				m.endTime = time.Now()
+				m.status = statusCompleted
+				m.statusText = fmt.Sprintf("Iteration %d complete (%s)", m.iteration, finalVerdict)
+
+				// Parse Ralph status from accumulated output for analytics
+				ralphStatus := parseRalphStatus(m.rawOutput)
+				taskID := ""
+				passed := approved
+				notes := reviewerStatus.Notes
+
+				if ralphStatus != nil {
+					taskID = ralphStatus.Task
+					if m.analytics.initialReady == 0 && ralphStatus.ReadyBefore > 0 {
+						m.analytics.initialReady = ralphStatus.ReadyBefore
+					}
+					m.analytics.currentReady = ralphStatus.ReadyAfter
+				}
+
+				elapsed := m.endTime.Sub(m.startTime)
+				m.analytics.addIteration(m.iteration, elapsed, passed, taskID, notes, finalVerdict, m.reviewCycle)
+
+				m.appendHomebase(fmt.Sprintf("Iteration %d complete. Duration: %s | Verdict: %s | Cycles: %d",
+					m.iteration, elapsed.Truncate(time.Second), finalVerdict, m.reviewCycle))
+
+				if strings.Contains(msg.output, "<promise>COMPLETE</promise>") {
+					m.loopDone = true
+					m.status = statusFinished
+					m.statusText = "Ralph reported COMPLETE"
+					m.appendHomebase("Ralph reported <promise>COMPLETE</promise>. Loop finished.")
+					return m, ringBell()
+				}
+
+				return m, tea.Tick(m.sleep, func(time.Time) tea.Msg {
+					return startIterationMsg{}
+				})
 			}
-			m.analytics.currentReady = ralphStatus.ReadyAfter
+
+			// Changes requested — move to fixer
+			m.reviewerFeedback = ExtractFullText(msg.output)
+			m.reviewCycle++
+			m.currentPhase = phaseFixer
+			m.statusText = fmt.Sprintf("Iteration %d • fixer", m.iteration)
+			m.appendHomebase(fmt.Sprintf("Phase: fixer (reviewer cycle %d/%d requested changes)", m.reviewCycle-1, m.maxReviewCycles))
+			return m, runClaudeCmd(m.ctx, m.claudePath, buildFixerPrompt(m.epic, m.plannerOutput, m.reviewerFeedback))
+
+		case phaseFixer:
+			diff, _ := getGitDiff()
+			m.currentPhase = phaseReviewer
+			specialist := detectSpecialist(diff)
+			m.statusText = fmt.Sprintf("Iteration %d • reviewer (%d/%d)", m.iteration, m.reviewCycle, m.maxReviewCycles)
+			m.appendHomebase(fmt.Sprintf("Phase: reviewer (cycle %d/%d)", m.reviewCycle, m.maxReviewCycles))
+			return m, runClaudeCmd(m.ctx, m.claudePath, buildReviewerPrompt(m.plannerOutput, diff, specialist))
 		}
-
-		// Record iteration in analytics
-		elapsed := m.endTime.Sub(m.startTime)
-		m.analytics.addIteration(m.iteration, elapsed, passed, taskID, notes, "APPROVED", 0)
-
-		// Append summary to homebase
-		statusStr := "PASSED"
-		if !passed {
-			statusStr = "FAILED"
-		}
-		m.appendHomebase(fmt.Sprintf("Iteration %d complete. Duration: %s | Status: %s | Task: %s",
-			m.iteration, elapsed.Truncate(time.Second), statusStr, taskID))
-
-		if strings.Contains(msg.output, "<promise>COMPLETE</promise>") {
-			m.loopDone = true
-			m.status = statusFinished
-			m.statusText = "Ralph reported COMPLETE"
-			m.appendHomebase("Ralph reported <promise>COMPLETE</promise>. Loop finished.")
-			return m, ringBell()
-		}
-
-		// Schedule next iteration after sleep
-		return m, tea.Tick(m.sleep, func(time.Time) tea.Msg {
-			return startIterationMsg{}
-		})
 
 	case tickMsg:
 		// Only continue ticking if the loop is still running
