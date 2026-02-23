@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -95,6 +96,39 @@ func runClaudeCmd(ctx context.Context, claudePath, prompt string) tea.Cmd {
 
 		return claudeDoneMsg{buf.String(), nil}
 	}
+}
+
+// getGitDiff returns the diff of the most recent commit (HEAD~1..HEAD).
+// Used by the reviewer phase to see what dev/fixer actually changed.
+func getGitDiff() (string, error) {
+	cmd := exec.Command("git", "diff", "HEAD~1")
+	out, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("git diff: %w", err)
+	}
+	return string(out), nil
+}
+
+// detectSpecialist maps file extensions in a git diff to a reviewer persona.
+// Multiple file types produce a combined persona.
+func detectSpecialist(diff string) string {
+	var personas []string
+	if strings.Contains(diff, ".go") {
+		personas = append(personas, "senior Go engineer, idiomatic Go, concurrency, this codebase")
+	}
+	if strings.Contains(diff, ".ts") || strings.Contains(diff, ".tsx") {
+		personas = append(personas, "senior TypeScript/React engineer")
+	}
+	if strings.Contains(diff, ".py") {
+		personas = append(personas, "senior Python engineer")
+	}
+	if strings.Contains(diff, ".tf") {
+		personas = append(personas, "senior Terraform/infrastructure engineer")
+	}
+	if len(personas) == 0 {
+		return "senior software engineer"
+	}
+	return strings.Join(personas, " and ")
 }
 
 // Prompt: Beads/AGENTS work is done entirely inside Claude.
