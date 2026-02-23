@@ -170,7 +170,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			// Record failed iteration
 			elapsed := m.endTime.Sub(m.startTime)
-			m.analytics.addIteration(m.iteration, elapsed, false, "", msg.err.Error())
+			m.analytics.addIteration(m.iteration, elapsed, false, "", msg.err.Error(), "ERROR", 0)
 
 			return m, nil
 		}
@@ -198,7 +198,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Record iteration in analytics
 		elapsed := m.endTime.Sub(m.startTime)
-		m.analytics.addIteration(m.iteration, elapsed, passed, taskID, notes)
+		m.analytics.addIteration(m.iteration, elapsed, passed, taskID, notes, "APPROVED", 0)
 
 		// Append summary to homebase
 		statusStr := "PASSED"

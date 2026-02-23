@@ -20,11 +20,13 @@ type analyticsData struct {
 
 // iterationRecord stores data for a single iteration
 type iterationRecord struct {
-	iteration int
-	duration  time.Duration
-	passed    bool
-	taskID    string
-	notes     string
+	iteration    int
+	duration     time.Duration
+	passed       bool
+	taskID       string
+	notes        string
+	reviewCycles int    // how many reviewer/fixer cycles were needed
+	finalVerdict string // "APPROVED" or "GAVE_UP"
 }
 
 func newAnalyticsData() analyticsData {
@@ -35,13 +37,15 @@ func newAnalyticsData() analyticsData {
 }
 
 // addIteration records a completed iteration
-func (a *analyticsData) addIteration(iteration int, duration time.Duration, passed bool, taskID, notes string) {
+func (a *analyticsData) addIteration(iteration int, duration time.Duration, passed bool, taskID, notes, finalVerdict string, reviewCycles int) {
 	record := iterationRecord{
-		iteration: iteration,
-		duration:  duration,
-		passed:    passed,
-		taskID:    taskID,
-		notes:     notes,
+		iteration:    iteration,
+		duration:     duration,
+		passed:       passed,
+		taskID:       taskID,
+		notes:        notes,
+		reviewCycles: reviewCycles,
+		finalVerdict: finalVerdict,
 	}
 	a.iterationHistory = append(a.iterationHistory, record)
 	if passed {
