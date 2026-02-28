@@ -154,11 +154,13 @@ func (m model) buildAnalyticsData() screens.AnalyticsData {
 	history := make([]screens.IterationRecord, len(m.analytics.iterationHistory))
 	for i, r := range m.analytics.iterationHistory {
 		history[i] = screens.IterationRecord{
-			Iteration: r.iteration,
-			Duration:  r.duration,
-			Passed:    r.passed,
-			TaskID:    r.taskID,
-			Notes:     r.notes,
+			Iteration:    r.iteration,
+			Duration:     r.duration,
+			Passed:       r.passed,
+			TaskID:       r.taskID,
+			Notes:        r.notes,
+			ReviewCycles: r.reviewCycles,
+			FinalVerdict: r.finalVerdict,
 		}
 	}
 

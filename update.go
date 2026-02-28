@@ -190,7 +190,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, runClaudeCmd(m.ctx, m.claudePath, buildDevPrompt(m.epic, m.plannerOutput))
 
 		case phaseDev:
-			diff, _ := getGitDiff()
+			if strings.Contains(msg.output, "<promise>COMPLETE</promise>") {
+				m.endTime = time.Now()
+				elapsed := m.endTime.Sub(m.startTime)
+				m.analytics.addIteration(m.iteration, elapsed, false, "", "No ready work remaining", "COMPLETE", 0)
+				m.loopDone = true
+				m.status = statusFinished
+				m.statusText = "Ralph reported COMPLETE"
+				m.appendHomebase("Ralph reported <promise>COMPLETE</promise>. Loop finished.")
+				return m, ringBell()
+			}
+			diff, _ := getGitDiff(m.ctx)
 			m.currentPhase = phaseReviewer
 			m.reviewCycle = 1
 			specialist := detectSpecialist(diff)
@@ -255,7 +265,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, runClaudeCmd(m.ctx, m.claudePath, buildFixerPrompt(m.epic, m.plannerOutput, m.reviewerFeedback))
 
 		case phaseFixer:
-			diff, _ := getGitDiff()
+			diff, _ := getGitDiff(m.ctx)
 			m.currentPhase = phaseReviewer
 			specialist := detectSpecialist(diff)
 			m.statusText = fmt.Sprintf("Iteration %d • reviewer (%d/%d)", m.iteration, m.reviewCycle, m.maxReviewCycles)
@@ -267,6 +277,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.statusText = "Unknown phase"
 			m.lastError = fmt.Sprintf("unexpected phase: %d", m.currentPhase)
 			m.appendHomebase(fmt.Sprintf("Error: unexpected phase %d", m.currentPhase))
+			return m, nil
 		}
 
 	case tickMsg:

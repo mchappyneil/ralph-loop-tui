@@ -75,11 +75,13 @@ type AnalyticsData struct {
 
 // IterationRecord represents a single iteration for display
 type IterationRecord struct {
-	Iteration int
-	Duration  time.Duration
-	Passed    bool
-	TaskID    string
-	Notes     string
+	Iteration    int
+	Duration     time.Duration
+	Passed       bool
+	TaskID       string
+	Notes        string
+	ReviewCycles int
+	FinalVerdict string
 }
 
 // RenderAnalytics renders the analytics dashboard
@@ -224,7 +226,7 @@ func renderHistoryPanel(data AnalyticsData, width int) string {
 	}
 
 	// Table header
-	b.WriteString(tableHeaderStyle.Render(fmt.Sprintf("%-4s %-10s %-8s %-12s", "#", "Duration", "Status", "Task")))
+	b.WriteString(tableHeaderStyle.Render(fmt.Sprintf("%-4s %-10s %-10s %-4s %-12s", "#", "Duration", "Verdict", "Cyc", "Task")))
 	b.WriteString("\n")
 
 	// Show last 10 iterations
@@ -234,9 +236,20 @@ func renderHistoryPanel(data AnalyticsData, width int) string {
 	}
 
 	for _, record := range history {
-		status := failedStyle.Render("FAILED")
-		if record.Passed {
-			status = passedStyle.Render("PASSED")
+		verdict := record.FinalVerdict
+		if verdict == "" {
+			if record.Passed {
+				verdict = "PASSED"
+			} else {
+				verdict = "FAILED"
+			}
+		}
+		var verdictStr string
+		switch verdict {
+		case "APPROVED", "PASSED":
+			verdictStr = passedStyle.Render(fmt.Sprintf("%-10s", verdict))
+		default:
+			verdictStr = failedStyle.Render(fmt.Sprintf("%-10s", verdict))
 		}
 
 		taskID := record.TaskID
@@ -247,10 +260,13 @@ func renderHistoryPanel(data AnalyticsData, width int) string {
 			taskID = "-"
 		}
 
-		row := fmt.Sprintf("%-4d %-10s %-8s %-12s",
+		cycles := fmt.Sprintf("%-4d", record.ReviewCycles)
+
+		row := fmt.Sprintf("%-4d %-10s %s %s %-12s",
 			record.Iteration,
 			record.Duration.Truncate(time.Second).String(),
-			status,
+			verdictStr,
+			cycles,
 			taskID,
 		)
 		b.WriteString(tableRowStyle.Render(row))

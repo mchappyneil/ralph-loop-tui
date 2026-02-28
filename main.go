@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"regexp"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -100,8 +101,8 @@ func runClaudeCmd(ctx context.Context, claudePath, prompt string) tea.Cmd {
 
 // getGitDiff returns the diff of the most recent commit (HEAD~1..HEAD).
 // Used by the reviewer phase to see what dev/fixer actually changed.
-func getGitDiff() (string, error) {
-	cmd := exec.Command("git", "diff", "HEAD~1..HEAD")
+func getGitDiff(ctx context.Context) (string, error) {
+	cmd := exec.CommandContext(ctx, "git", "diff", "HEAD~1..HEAD")
 	out, err := cmd.Output()
 	if err != nil {
 		return "", fmt.Errorf("git diff: %w", err)
@@ -113,16 +114,16 @@ func getGitDiff() (string, error) {
 // Multiple file types produce a combined persona.
 func detectSpecialist(diff string) string {
 	var personas []string
-	if strings.Contains(diff, ".go") {
+	if regexp.MustCompile(`(?m)^diff --git a/.*\.go `).MatchString(diff) {
 		personas = append(personas, "senior Go engineer, idiomatic Go, concurrency, this codebase")
 	}
-	if strings.Contains(diff, ".tsx") || strings.Contains(diff, ".ts") {
+	if regexp.MustCompile(`(?m)^diff --git a/.*\.tsx? `).MatchString(diff) {
 		personas = append(personas, "senior TypeScript/React engineer")
 	}
-	if strings.Contains(diff, ".py") {
+	if regexp.MustCompile(`(?m)^diff --git a/.*\.py `).MatchString(diff) {
 		personas = append(personas, "senior Python engineer")
 	}
-	if strings.Contains(diff, ".tf") {
+	if regexp.MustCompile(`(?m)^diff --git a/.*\.tf `).MatchString(diff) {
 		personas = append(personas, "senior Terraform/infrastructure engineer")
 	}
 	if len(personas) == 0 {

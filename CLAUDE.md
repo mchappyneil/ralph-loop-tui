@@ -4,13 +4,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Ralph-loop-wrapper is a Go TUI application that orchestrates an autonomous Claude agent ("Ralph") working through a Beads issue tracker. It provides real-time monitoring of Claude executing tasks in a loop until work is complete.
+Ralph-loop-go (`github.com/fireynis/ralph-loop-go`) is a Go TUI application that orchestrates an autonomous Claude agent ("Ralph") working through a Beads issue tracker. It provides real-time monitoring of Claude executing tasks in a loop until work is complete. Go version: 1.25.5.
 
 ## Build & Run Commands
 
 ```bash
 # Build
-go build
+go build -o ralph-loop-go
+
+# Lint (run after any Go code changes)
+golangci-lint run
 
 # Run with defaults (50 iterations, 2s sleep)
 ./ralph-loop-go
@@ -27,6 +30,8 @@ go build
 - `-sleep-seconds` (default: 2) - Sleep between iterations
 - `-claude-bin` (default: "claude") - Path to Claude CLI
 - `-epic` (default: "") - Filter to tasks within a specific epic
+
+**Dependencies:** Vendored in `vendor/`. After modifying `go.mod`, run `go mod vendor` to update.
 
 ## Architecture
 
@@ -100,7 +105,7 @@ notes: <summary>
 ## Testing
 
 No tests exist yet. When adding tests:
-- Use `testing.Short()` for tests requiring external services (per user's CLAUDE.md)
+- Use `testing.Short()` for tests requiring external services
 - Test the message flow and state transitions
 - Mock `exec.CommandContext` for Claude CLI interactions
 - Test JSON parsing with sample stream-json output
