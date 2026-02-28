@@ -41,6 +41,31 @@ const (
 	statusFinished  iterationStatus = "finished"
 )
 
+// iterationPhase tracks which phase of the pipeline the current iteration is in
+type iterationPhase int
+
+const (
+	phasePlanner  iterationPhase = iota
+	phaseDev
+	phaseReviewer
+	phaseFixer
+)
+
+func (p iterationPhase) String() string {
+	switch p {
+	case phasePlanner:
+		return "planner"
+	case phaseDev:
+		return "dev"
+	case phaseReviewer:
+		return "reviewer"
+	case phaseFixer:
+		return "fixer"
+	default:
+		return "unknown"
+	}
+}
+
 // Messages
 type startIterationMsg struct{}
 type claudeOutputLineMsg struct {
@@ -90,6 +115,13 @@ type model struct {
 	loopDone   bool
 	epic       string // Filter to tasks within a specific epic
 
+	// Phase pipeline state
+	currentPhase     iterationPhase
+	reviewCycle      int    // current review cycle (1-based)
+	maxReviewCycles  int    // from -max-review-cycles flag
+	plannerOutput    string // stored between planner → dev/reviewer/fixer
+	reviewerFeedback string // stored between reviewer → fixer
+
 	// Context for cancellation
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -124,6 +156,7 @@ func initialModel() model {
 		claudePath:      *claudeBin,
 		sleep:           time.Duration(*sleepSeconds) * time.Second,
 		epic:            *epicFilter,
+		maxReviewCycles: *maxReviewCycles,
 		ctx:             ctx,
 		cancel:          cancel,
 	}
@@ -154,18 +187,6 @@ func (m *model) appendOutput(s string) {
 		if m.followOutput {
 			m.outputVP.GotoBottom()
 		}
-	}
-}
-
-// currentViewport returns the active screen's viewport
-func (m *model) currentViewport() *viewport.Model {
-	switch m.activeScreen {
-	case screenHomebase:
-		return &m.homebaseVP
-	case screenOutput:
-		return &m.outputVP
-	default:
-		return &m.homebaseVP
 	}
 }
 
