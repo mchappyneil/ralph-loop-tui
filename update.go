@@ -127,6 +127,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.status = statusFinished
 			m.statusText = "No ready work available"
 			m.appendHomebase("No ready issues found. Nothing to do.")
+			_ = m.reporter.SessionEnded("no_ready_work")
 			return m, ringBell()
 		}
 
@@ -135,6 +136,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case startIterationMsg:
 		if m.loopDone || m.iteration >= m.maxIter {
+			_ = m.reporter.PhaseChanged(m.currentPhase.String(), "complete")
 			_ = m.reporter.SessionEnded("finished")
 			m.status = statusFinished
 			m.statusText = "Finished (max iterations or COMPLETE)"
@@ -399,6 +401,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			Notes:        "No ready work remaining (verified)",
 			FinalVerdict: "COMPLETE",
 		})
+		_ = m.reporter.PhaseChanged(m.currentPhase.String(), "complete")
 		_ = m.reporter.SessionEnded("complete")
 
 		m.appendHomebase("  Verified: no ready work remains. Loop finished.")
