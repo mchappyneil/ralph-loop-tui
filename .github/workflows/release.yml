@@ -1,0 +1,43 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to release (e.g., v1.0.0). Leave empty to build snapshot."
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Set tag from manual input
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.tag != ''
+        env:
+          RELEASE_TAG: ${{ github.event.inputs.tag }}
+        run: |
+          git tag "$RELEASE_TAG"
+
+      - uses: goreleaser/goreleaser-action@v6
+        with:
+          version: "~> v2"
+          args: >-
+            release --clean
+            ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag == '' && '--snapshot' || '' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
