@@ -77,6 +77,11 @@ func main() {
 		fmt.Println("Error:", err)
 		os.Exit(1)
 	}
+
+	// Flush any pending reporter events before exit.
+	if err := reporter.Close(); err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+	}
 }
 
 // runClaudeCmd runs Claude and streams output line by line.

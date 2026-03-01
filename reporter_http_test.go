@@ -63,8 +63,10 @@ func TestHTTPReporter_SendsSessionStarted(t *testing.T) {
 		t.Fatalf("SessionStarted returned error: %v", err)
 	}
 
-	// Wait for goroutine to deliver the event.
-	time.Sleep(200 * time.Millisecond)
+	// Flush pending sends.
+	if err := r.Close(); err != nil {
+		t.Fatalf("Close returned error: %v", err)
+	}
 
 	events := col.snapshot()
 	if len(events) != 1 {
@@ -136,7 +138,9 @@ func TestHTTPReporter_AllMethodsSendEvents(t *testing.T) {
 	_ = r.TaskClosed("BD-42", "abc123")
 	_ = r.SessionEnded("all_complete")
 
-	time.Sleep(300 * time.Millisecond)
+	if err := r.Close(); err != nil {
+		t.Fatalf("Close returned error: %v", err)
+	}
 
 	events := col.snapshot()
 	if len(events) != 7 {
@@ -167,6 +171,38 @@ func TestHTTPReporter_AllMethodsSendEvents(t *testing.T) {
 	}
 }
 
+func TestHTTPReporter_CloseGuaranteesDelivery(t *testing.T) {
+	col := &eventCollector{}
+	srv := httptest.NewServer(http.HandlerFunc(col.handler))
+	defer srv.Close()
+
+	r := newHTTPReporter(srv.URL, "test-key", "test-repo", "")
+
+	_ = r.SessionStarted(SessionConfig{MaxIterations: 10})
+	_ = r.SessionEnded("complete")
+
+	// Close must block until both events are delivered.
+	if err := r.Close(); err != nil {
+		t.Fatalf("Close returned error: %v", err)
+	}
+
+	events := col.snapshot()
+	if len(events) != 2 {
+		t.Fatalf("expected 2 events after Close, got %d", len(events))
+	}
+
+	// Verify session.ended was delivered.
+	var foundEnded bool
+	for _, ev := range events {
+		if ev.Type == EventSessionEnded {
+			foundEnded = true
+		}
+	}
+	if !foundEnded {
+		t.Error("session.ended event not delivered after Close")
+	}
+}
+
 func TestHTTPReporter_ContextUpdatesAcrossCalls(t *testing.T) {
 	col := &eventCollector{}
 	srv := httptest.NewServer(http.HandlerFunc(col.handler))
@@ -177,7 +213,9 @@ func TestHTTPReporter_ContextUpdatesAcrossCalls(t *testing.T) {
 	_ = r.SessionStarted(SessionConfig{MaxIterations: 20})
 	_ = r.IterationStarted(3, "reviewer")
 
-	time.Sleep(200 * time.Millisecond)
+	if err := r.Close(); err != nil {
+		t.Fatalf("Close returned error: %v", err)
+	}
 
 	events := col.snapshot()
 	if len(events) < 2 {

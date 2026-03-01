@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"testing"
 	"time"
+
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 // spyReporter records all Reporter method calls for test assertions.
@@ -50,6 +52,8 @@ func (s *spyReporter) TaskClosed(taskID, commitHash string) error {
 	s.calls = append(s.calls, spyCall{"TaskClosed", map[string]any{"taskID": taskID, "commitHash": commitHash}})
 	return nil
 }
+
+func (s *spyReporter) Close() error { return nil }
 
 func (s *spyReporter) callsOf(method string) []spyCall {
 	var out []spyCall
@@ -252,6 +256,35 @@ func TestClaudeSuccess_ResetsConsecutiveErrors(t *testing.T) {
 
 	if updated.consecutiveErrors != 0 {
 		t.Errorf("consecutiveErrors = %d, want 0 after success", updated.consecutiveErrors)
+	}
+}
+
+func TestSessionEnded_NotDuplicated_OnQuitAfterComplete(t *testing.T) {
+	spy := &spyReporter{}
+	m := initialModel(spy)
+	m.width = 80
+	m.height = 24
+	m.iteration = 1
+	m.startTime = time.Now().Add(-10 * time.Second)
+	m.currentPhase = phaseDev
+	m.status = statusRunning
+
+	// Simulate loop completion via bdReadyCheckMsg
+	msg := bdReadyCheckMsg{readyCount: 0, err: nil}
+	result, _ := m.Update(msg)
+	updated := result.(model)
+
+	// Now simulate user pressing q
+	quitResult, _ := updated.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
+	_ = quitResult
+
+	// Should have exactly 1 SessionEnded call (complete), not 2
+	sessionEnds := spy.callsOf("SessionEnded")
+	if len(sessionEnds) != 1 {
+		t.Errorf("expected exactly 1 SessionEnded call, got %d: %v", len(sessionEnds), sessionEnds)
+	}
+	if len(sessionEnds) > 0 && sessionEnds[0].args["reason"] != "complete" {
+		t.Errorf("SessionEnded reason = %q, want %q", sessionEnds[0].args["reason"], "complete")
 	}
 }
 

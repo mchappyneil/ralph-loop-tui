@@ -23,6 +23,7 @@ type IterationResult struct {
 
 // Reporter sends events to a ralph-hub server.
 // Implementations must be safe to call from goroutines.
+// Close must be called before the process exits to flush pending events.
 type Reporter interface {
 	SessionStarted(config SessionConfig) error
 	SessionEnded(reason string) error
@@ -31,6 +32,7 @@ type Reporter interface {
 	PhaseChanged(from, to string) error
 	TaskClaimed(taskID, description string) error
 	TaskClosed(taskID, commitHash string) error
+	Close() error
 }
 
 // noopReporter is used when no hub URL is configured. All methods are no-ops.
@@ -43,3 +45,4 @@ func (n *noopReporter) IterationCompleted(IterationResult) error { return nil }
 func (n *noopReporter) PhaseChanged(string, string) error        { return nil }
 func (n *noopReporter) TaskClaimed(string, string) error         { return nil }
 func (n *noopReporter) TaskClosed(string, string) error          { return nil }
+func (n *noopReporter) Close() error                             { return nil }

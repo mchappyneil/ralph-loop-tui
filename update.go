@@ -59,7 +59,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "q", "ctrl+c", "esc":
-			_ = m.reporter.SessionEnded("interrupted")
+			m.endSession("interrupted")
 			m.cancel()
 			return m, tea.Quit
 
@@ -129,7 +129,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.status = statusFinished
 			m.statusText = "No ready work available"
 			m.appendHomebase("No ready issues found. Nothing to do.")
-			_ = m.reporter.SessionEnded("no_ready_work")
+			m.endSession("no_ready_work")
 			return m, ringBell()
 		}
 
@@ -139,7 +139,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case startIterationMsg:
 		if m.loopDone || m.iteration >= m.maxIter {
 			_ = m.reporter.PhaseChanged(m.currentPhase.String(), "complete")
-			_ = m.reporter.SessionEnded("finished")
+			m.endSession("finished")
 			m.status = statusFinished
 			m.statusText = "Finished (max iterations or COMPLETE)"
 			return m, ringBell()
@@ -258,7 +258,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.statusText = "Stopped (repeated Claude errors)"
 			m.appendHomebase(fmt.Sprintf("  %d consecutive errors — stopping loop", m.consecutiveErrors))
 			_ = m.reporter.PhaseChanged(m.currentPhase.String(), "error")
-			_ = m.reporter.SessionEnded("error")
+			m.endSession("error")
 			return m, ringBell()
 		}
 
@@ -369,7 +369,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.statusText = "Unknown phase"
 			m.lastError = fmt.Sprintf("unexpected phase: %d", m.currentPhase)
 			m.appendHomebase(fmt.Sprintf("Error: unexpected phase %d", m.currentPhase))
-			_ = m.reporter.SessionEnded("error")
+			m.endSession("error")
 			return m, nil
 		}
 
@@ -429,7 +429,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			FinalVerdict: "COMPLETE",
 		})
 		_ = m.reporter.PhaseChanged(m.currentPhase.String(), "complete")
-		_ = m.reporter.SessionEnded("complete")
+		m.endSession("complete")
 
 		m.appendHomebase("  Verified: no ready work remains. Loop finished.")
 		return m, ringBell()

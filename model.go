@@ -146,6 +146,7 @@ type model struct {
 	reporter      Reporter
 	hubURL        string
 	hubInstanceID string
+	sessionEnded  bool // prevents duplicate SessionEnded calls
 
 	// Context for cancellation
 	ctx    context.Context
@@ -186,6 +187,15 @@ func initialModel(reporter Reporter) model {
 		ctx:             ctx,
 		cancel:          cancel,
 	}
+}
+
+// endSession sends a SessionEnded event exactly once, preventing duplicates.
+func (m *model) endSession(reason string) {
+	if m.sessionEnded {
+		return
+	}
+	_ = m.reporter.SessionEnded(reason)
+	m.sessionEnded = true
 }
 
 // appendHomebase adds a line to the homebase content

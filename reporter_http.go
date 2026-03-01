@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -14,6 +15,7 @@ import (
 
 // httpReporter implements Reporter by POSTing events to a ralph-hub server.
 // All sends happen in goroutines so they never block the Bubble Tea event loop.
+// Call Close() before process exit to flush pending events.
 type httpReporter struct {
 	hubURL     string
 	apiKey     string
@@ -30,6 +32,9 @@ type httpReporter struct {
 	status           string
 	currentPhase     string
 	analytics        *analyticsData
+
+	// wg tracks in-flight send goroutines so Close() can wait for them.
+	wg sync.WaitGroup
 }
 
 // newHTTPReporter creates an httpReporter that sends events to hubURL.
@@ -156,30 +161,54 @@ func (h *httpReporter) buildContext() EventContext {
 
 // send fires the event to the hub in a goroutine. Errors are logged to stderr
 // but never returned — the caller has already moved on.
+// The goroutine is tracked by h.wg so Close() can wait for delivery.
 func (h *httpReporter) send(ev Event) {
 	body, err := json.Marshal(ev)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "reporter: marshal error: %v\n", err)
 		return
 	}
+	h.wg.Add(1)
 	go func() {
-		req, err := http.NewRequest(http.MethodPost, h.hubURL+"/api/v1/events", bytes.NewReader(body))
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "reporter: request error: %v\n", err)
-			return
-		}
-		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("Authorization", "Bearer "+h.apiKey)
-
-		resp, err := h.client.Do(req)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "reporter: send error: %v\n", err)
-			return
-		}
-		defer func() { _ = resp.Body.Close() }()
-		if resp.StatusCode >= 400 {
-			respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
-			fmt.Fprintf(os.Stderr, "reporter: hub returned %s for %s: %s\n", resp.Status, ev.Type, respBody)
-		}
+		defer h.wg.Done()
+		h.doSend(body, ev.Type)
 	}()
+}
+
+// doSend performs the actual HTTP POST. Shared by send (async) and sendSync.
+func (h *httpReporter) doSend(body []byte, eventType EventType) {
+	req, err := http.NewRequest(http.MethodPost, h.hubURL+"/api/v1/events", bytes.NewReader(body))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "reporter: request error: %v\n", err)
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+h.apiKey)
+
+	resp, err := h.client.Do(req)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "reporter: send error: %v\n", err)
+		return
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode >= 400 {
+		respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
+		fmt.Fprintf(os.Stderr, "reporter: hub returned %s for %s: %s\n", resp.Status, eventType, respBody)
+	}
+}
+
+// Close waits for all pending send goroutines to complete, with a timeout.
+// Must be called before the process exits to guarantee event delivery.
+func (h *httpReporter) Close() error {
+	done := make(chan struct{})
+	go func() {
+		h.wg.Wait()
+		close(done)
+	}()
+	select {
+	case <-done:
+		return nil
+	case <-time.After(15 * time.Second):
+		return fmt.Errorf("reporter: timed out waiting for %s pending events", h.hubURL)
+	}
 }
