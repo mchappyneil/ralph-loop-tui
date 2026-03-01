@@ -10,6 +10,12 @@ import (
 
 // Init starts first iteration and a periodic tick
 func (m model) Init() tea.Cmd {
+	_ = m.reporter.SessionStarted(SessionConfig{
+		MaxIterations:   m.maxIter,
+		SleepSeconds:    int(m.sleep.Seconds()),
+		Epic:            m.epic,
+		MaxReviewCycles: m.maxReviewCycles,
+	})
 	return tea.Batch(startNextIteration(), tick())
 }
 
@@ -51,6 +57,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "q", "ctrl+c", "esc":
+			_ = m.reporter.SessionEnded("interrupted")
 			m.cancel()
 			return m, tea.Quit
 
@@ -90,6 +97,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case startIterationMsg:
 		if m.loopDone || m.iteration >= m.maxIter {
+			_ = m.reporter.SessionEnded("finished")
 			m.status = statusFinished
 			m.statusText = "Finished (max iterations or COMPLETE)"
 			return m, ringBell()
@@ -115,6 +123,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			m.rawOutputLog = m.rawOutputLog + fmt.Sprintf("\n\n--- Iteration %d Raw Output ---", m.iteration)
 		}
+
+		_ = m.reporter.IterationStarted(m.iteration, m.currentPhase.String())
 
 		m.appendHomebase(fmt.Sprintf("\n=== Iteration %d of %d ===", m.iteration, m.maxIter))
 		m.appendHomebase(fmt.Sprintf("Start: %s", m.startTime.Format(time.RFC3339)))
@@ -177,6 +187,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Record failed iteration
 			elapsed := m.endTime.Sub(m.startTime)
 			m.analytics.addIteration(m.iteration, elapsed, false, "", msg.err.Error(), "ERROR", 0)
+			_ = m.reporter.IterationCompleted(IterationResult{
+				Iteration:    m.iteration,
+				Duration:     elapsed,
+				Passed:       false,
+				Notes:        msg.err.Error(),
+				FinalVerdict: "ERROR",
+			})
 
 			return m, nil
 		}
@@ -185,23 +202,22 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case phasePlanner:
 			m.plannerOutput = ExtractFullText(msg.output)
 			m.currentPhase = phaseDev
+			_ = m.reporter.PhaseChanged("planner", "dev")
 			m.statusText = fmt.Sprintf("Iteration %d • dev", m.iteration)
 			m.appendHomebase("Phase: dev")
 			return m, runClaudeCmd(m.ctx, m.claudePath, buildDevPrompt(m.epic, m.plannerOutput))
 
 		case phaseDev:
 			if strings.Contains(msg.output, "<promise>COMPLETE</promise>") {
-				m.endTime = time.Now()
-				elapsed := m.endTime.Sub(m.startTime)
-				m.analytics.addIteration(m.iteration, elapsed, false, "", "No ready work remaining", "COMPLETE", 0)
-				m.loopDone = true
-				m.status = statusFinished
-				m.statusText = "Ralph reported COMPLETE"
-				m.appendHomebase("Ralph reported <promise>COMPLETE</promise>. Loop finished.")
-				return m, ringBell()
+				// Don't trust Ralph's COMPLETE blindly — closing a task may unblock
+				// dependent tasks. Verify by running bd ready ourselves.
+				m.statusText = fmt.Sprintf("Iteration %d • verifying COMPLETE", m.iteration)
+				m.appendHomebase("Ralph reported COMPLETE — verifying with bd ready...")
+				return m, checkBdReady(m.ctx, m.epic)
 			}
 			diff, _ := getGitDiff(m.ctx)
 			m.currentPhase = phaseReviewer
+			_ = m.reporter.PhaseChanged("dev", "reviewer")
 			m.reviewCycle = 1
 			specialist := detectSpecialist(diff)
 			m.statusText = fmt.Sprintf("Iteration %d • reviewer (%d/%d)", m.iteration, m.reviewCycle, m.maxReviewCycles)
@@ -239,16 +255,24 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 				elapsed := m.endTime.Sub(m.startTime)
 				m.analytics.addIteration(m.iteration, elapsed, passed, taskID, notes, finalVerdict, m.reviewCycle)
+				_ = m.reporter.IterationCompleted(IterationResult{
+					Iteration:    m.iteration,
+					Duration:     elapsed,
+					TaskID:       taskID,
+					Passed:       passed,
+					Notes:        notes,
+					FinalVerdict: finalVerdict,
+					ReviewCycles: m.reviewCycle,
+				})
 
 				m.appendHomebase(fmt.Sprintf("Iteration %d complete. Duration: %s | Verdict: %s | Cycles: %d",
 					m.iteration, elapsed.Truncate(time.Second), finalVerdict, m.reviewCycle))
 
 				if strings.Contains(m.rawOutput, "<promise>COMPLETE</promise>") {
-					m.loopDone = true
-					m.status = statusFinished
-					m.statusText = "Ralph reported COMPLETE"
-					m.appendHomebase("Ralph reported <promise>COMPLETE</promise>. Loop finished.")
-					return m, ringBell()
+					// Verify COMPLETE — closing may have unblocked new work
+					m.statusText = fmt.Sprintf("Iteration %d • verifying COMPLETE", m.iteration)
+					m.appendHomebase("Ralph reported COMPLETE — verifying with bd ready...")
+					return m, checkBdReady(m.ctx, m.epic)
 				}
 
 				return m, tea.Tick(m.sleep, func(time.Time) tea.Msg {
@@ -260,6 +284,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.reviewerFeedback = ExtractFullText(msg.output)
 			m.reviewCycle++
 			m.currentPhase = phaseFixer
+			_ = m.reporter.PhaseChanged("reviewer", "fixer")
 			m.statusText = fmt.Sprintf("Iteration %d • fixer", m.iteration)
 			m.appendHomebase(fmt.Sprintf("Phase: fixer (reviewer cycle %d/%d requested changes)", m.reviewCycle-1, m.maxReviewCycles))
 			return m, runClaudeCmd(m.ctx, m.claudePath, buildFixerPrompt(m.epic, m.plannerOutput, m.reviewerFeedback))
@@ -267,6 +292,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case phaseFixer:
 			diff, _ := getGitDiff(m.ctx)
 			m.currentPhase = phaseReviewer
+			_ = m.reporter.PhaseChanged("fixer", "reviewer")
 			specialist := detectSpecialist(diff)
 			m.statusText = fmt.Sprintf("Iteration %d • reviewer (%d/%d)", m.iteration, m.reviewCycle, m.maxReviewCycles)
 			m.appendHomebase(fmt.Sprintf("Phase: reviewer (cycle %d/%d)", m.reviewCycle, m.maxReviewCycles))
@@ -279,6 +305,66 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.appendHomebase(fmt.Sprintf("Error: unexpected phase %d", m.currentPhase))
 			return m, nil
 		}
+
+	case bdReadyCheckMsg:
+		if msg.err != nil {
+			m.appendHomebase(fmt.Sprintf("  bd ready check failed: %v — treating as COMPLETE", msg.err))
+		}
+
+		if msg.err == nil && msg.readyCount > 0 {
+			// COMPLETE was premature — there's still ready work
+			m.appendHomebase(fmt.Sprintf("  Found %d ready task(s) after close — COMPLETE was premature, continuing loop", msg.readyCount))
+			m.status = statusCompleted
+			m.statusText = fmt.Sprintf("Iteration %d complete (COMPLETE overridden)", m.iteration)
+
+			// Record iteration analytics
+			m.endTime = time.Now()
+			elapsed := m.endTime.Sub(m.startTime)
+			ralphStatus := parseRalphStatus(m.rawOutput)
+			taskID := ""
+			if ralphStatus != nil {
+				taskID = ralphStatus.Task
+			}
+			m.analytics.addIteration(m.iteration, elapsed, true, taskID, "COMPLETE overridden — ready work remains", "OVERRIDE", 0)
+			_ = m.reporter.IterationCompleted(IterationResult{
+				Iteration:    m.iteration,
+				Duration:     elapsed,
+				TaskID:       taskID,
+				Passed:       true,
+				Notes:        "COMPLETE overridden — ready work remains",
+				FinalVerdict: "OVERRIDE",
+			})
+
+			return m, tea.Tick(m.sleep, func(time.Time) tea.Msg {
+				return startIterationMsg{}
+			})
+		}
+
+		// Verified: no ready work remains
+		m.loopDone = true
+		m.status = statusFinished
+		m.statusText = "Ralph reported COMPLETE (verified)"
+		m.endTime = time.Now()
+		elapsed := m.endTime.Sub(m.startTime)
+
+		ralphStatus := parseRalphStatus(m.rawOutput)
+		taskID := ""
+		if ralphStatus != nil {
+			taskID = ralphStatus.Task
+		}
+		m.analytics.addIteration(m.iteration, elapsed, true, taskID, "No ready work remaining (verified)", "COMPLETE", 0)
+		_ = m.reporter.IterationCompleted(IterationResult{
+			Iteration:    m.iteration,
+			Duration:     elapsed,
+			TaskID:       taskID,
+			Passed:       true,
+			Notes:        "No ready work remaining (verified)",
+			FinalVerdict: "COMPLETE",
+		})
+		_ = m.reporter.SessionEnded("complete")
+
+		m.appendHomebase("  Verified: no ready work remains. Loop finished.")
+		return m, ringBell()
 
 	case tickMsg:
 		// Only continue ticking if the loop is still running
