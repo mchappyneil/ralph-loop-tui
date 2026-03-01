@@ -135,9 +135,10 @@ type model struct {
 	epic       string // Filter to tasks within a specific epic
 
 	// Phase pipeline state
-	currentPhase     iterationPhase
-	reviewCycle      int    // current review cycle (1-based)
-	maxReviewCycles  int    // from -max-review-cycles flag
+	currentPhase      iterationPhase
+	reviewCycle       int // current review cycle (1-based)
+	maxReviewCycles   int // from -max-review-cycles flag
+	consecutiveErrors int // consecutive Claude errors; reset on success
 	plannerOutput    string // stored between planner → dev/reviewer/fixer
 	reviewerFeedback string // stored between reviewer → fixer
 

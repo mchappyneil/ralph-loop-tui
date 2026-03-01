@@ -8,6 +8,8 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
+const maxConsecutiveErrors = 3
+
 // Init starts first iteration and a periodic tick
 func (m model) Init() tea.Cmd {
 	_ = m.reporter.SessionStarted(SessionConfig{
@@ -219,9 +221,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		if msg.err != nil {
 			m.endTime = time.Now()
-			m.status = statusError
-			m.statusText = "Error running Claude"
 			m.lastError = msg.err.Error()
+			m.consecutiveErrors++
 			m.appendHomebase(fmt.Sprintf("Error: %v", msg.err))
 
 			// Record failed iteration
@@ -235,8 +236,33 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				FinalVerdict: "ERROR",
 			})
 
-			return m, nil
+			// Don't retry if context is cancelled (user quit)
+			if m.ctx.Err() != nil {
+				m.status = statusError
+				m.statusText = "Error running Claude"
+				return m, nil
+			}
+
+			// Retry if under the consecutive error limit
+			if m.consecutiveErrors < maxConsecutiveErrors {
+				m.status = statusError
+				m.statusText = fmt.Sprintf("Error running Claude (retry %d/%d)", m.consecutiveErrors, maxConsecutiveErrors)
+				m.appendHomebase(fmt.Sprintf("  Transient error, retrying (%d/%d)...", m.consecutiveErrors, maxConsecutiveErrors))
+				return m, tea.Tick(m.sleep, func(time.Time) tea.Msg {
+					return startIterationMsg{}
+				})
+			}
+
+			// Retries exhausted — stop the loop
+			m.status = statusFinished
+			m.statusText = "Stopped (repeated Claude errors)"
+			m.appendHomebase(fmt.Sprintf("  %d consecutive errors — stopping loop", m.consecutiveErrors))
+			_ = m.reporter.PhaseChanged(m.currentPhase.String(), "error")
+			_ = m.reporter.SessionEnded("error")
+			return m, ringBell()
 		}
+
+		m.consecutiveErrors = 0
 
 		switch m.currentPhase {
 		case phasePlanner:
@@ -339,10 +365,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, runClaudeCmd(m.ctx, m.claudePath, buildReviewerPrompt(m.plannerOutput, diff, specialist))
 
 		default:
-			m.status = statusError
+			m.status = statusFinished
 			m.statusText = "Unknown phase"
 			m.lastError = fmt.Sprintf("unexpected phase: %d", m.currentPhase)
 			m.appendHomebase(fmt.Sprintf("Error: unexpected phase %d", m.currentPhase))
+			_ = m.reporter.SessionEnded("error")
 			return m, nil
 		}
 
