@@ -49,16 +49,18 @@ func main() {
 	// Create reporter
 	var reporter Reporter
 	if hubURLVal != "" {
+		fmt.Fprintf(os.Stderr, "reporter: hub enabled → %s\n", hubURLVal)
 		reporter = newHTTPReporter(hubURLVal, hubKeyVal, instanceIDVal, *epicFilter)
 	} else {
+		fmt.Fprintln(os.Stderr, "reporter: hub disabled (no RALPH_HUB_URL)")
 		reporter = &noopReporter{}
 	}
 
 	m := initialModel(reporter)
-
-	// Wire analytics pointer so httpReporter gets live data
+	m.hubURL = hubURLVal
 	if hr, ok := reporter.(*httpReporter); ok {
 		hr.analytics = &m.analytics
+		m.hubInstanceID = hr.instanceID
 	}
 
 	p := tea.NewProgram(m, tea.WithAltScreen())
@@ -154,6 +156,61 @@ func checkBdReady(ctx context.Context, epic string) tea.Cmd {
 			return bdReadyCheckMsg{readyCount: 0, err: nil}
 		}
 		return bdReadyCheckMsg{readyCount: len(issues), err: nil}
+	}
+}
+
+// runPreflight gathers issue census data before the loop starts.
+// Runs bd ready, bd blocked, bd list (in_progress), bd list (open), and bd graph.
+func runPreflight(ctx context.Context, epic string) tea.Cmd {
+	return func() tea.Msg {
+		var parentFlag []string
+		if epic != "" {
+			parentFlag = []string{"--parent", epic}
+		}
+
+		runBd := func(args ...string) ([]byte, error) {
+			cmd := exec.CommandContext(ctx, "bd", args...)
+			return cmd.Output()
+		}
+
+		countJSON := func(out []byte) int {
+			var items []json.RawMessage
+			if err := json.Unmarshal(out, &items); err == nil {
+				return len(items)
+			}
+			return 0
+		}
+
+		readyOut, err := runBd(append([]string{"ready", "--json"}, parentFlag...)...)
+		if err != nil {
+			return preflightDoneMsg{err: fmt.Errorf("bd ready: %w", err)}
+		}
+		readyCount := countJSON(readyOut)
+
+		blockedOut, _ := runBd(append([]string{"blocked", "--json"}, parentFlag...)...)
+		blockedCount := countJSON(blockedOut)
+
+		ipOut, _ := runBd(append([]string{"list", "--status=in_progress", "--json", "--limit", "0"}, parentFlag...)...)
+		inProgressCount := countJSON(ipOut)
+
+		openOut, _ := runBd(append([]string{"list", "--status=open", "--json", "--limit", "0"}, parentFlag...)...)
+		totalOpenCount := countJSON(openOut)
+
+		var graphArgs []string
+		if epic != "" {
+			graphArgs = []string{"graph", "--compact", epic}
+		} else {
+			graphArgs = []string{"graph", "--compact", "--all"}
+		}
+		graphOut, _ := runBd(graphArgs...)
+
+		return preflightDoneMsg{
+			readyCount:      readyCount,
+			blockedCount:    blockedCount,
+			inProgressCount: inProgressCount,
+			totalOpenCount:  totalOpenCount,
+			graphOutput:     string(graphOut),
+		}
 	}
 }
 
