@@ -16,7 +16,7 @@ func (m model) Init() tea.Cmd {
 		Epic:            m.epic,
 		MaxReviewCycles: m.maxReviewCycles,
 	})
-	return tea.Batch(startNextIteration(), tick())
+	return tea.Batch(runPreflight(m.ctx, m.epic), tick())
 }
 
 func startNextIteration() tea.Cmd {
@@ -94,6 +94,44 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		}
+
+	case preflightDoneMsg:
+		if msg.err != nil {
+			m.status = statusIdle
+			m.statusText = "Preflight failed, starting loop"
+			m.appendHomebase(fmt.Sprintf("Preflight error: %v", msg.err))
+			m.appendHomebase("Starting loop anyway...")
+			return m, startNextIteration()
+		}
+
+		m.analytics.initialReady = msg.readyCount
+		m.analytics.currentReady = msg.readyCount
+
+		epicLabel := "all work"
+		if m.epic != "" {
+			epicLabel = fmt.Sprintf("epic %s", m.epic)
+		}
+		m.appendHomebase(fmt.Sprintf("=== Work Summary (%s) ===", epicLabel))
+		m.appendHomebase(fmt.Sprintf("Ready: %d | Blocked: %d | In Progress: %d | Total Open: %d",
+			msg.readyCount, msg.blockedCount, msg.inProgressCount, msg.totalOpenCount))
+
+		if msg.graphOutput != "" {
+			m.appendHomebase("")
+			m.appendHomebase("=== Dependency Graph ===")
+			m.appendHomebase(msg.graphOutput)
+			m.appendHomebase("")
+		}
+
+		if msg.readyCount == 0 {
+			m.loopDone = true
+			m.status = statusFinished
+			m.statusText = "No ready work available"
+			m.appendHomebase("No ready issues found. Nothing to do.")
+			return m, ringBell()
+		}
+
+		m.appendHomebase(fmt.Sprintf("Starting loop (max %d iterations)...\n", m.maxIter))
+		return m, startNextIteration()
 
 	case startIterationMsg:
 		if m.loopDone || m.iteration >= m.maxIter {

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os/exec"
 	"testing"
 )
@@ -70,5 +71,76 @@ func TestRunPreflight_Integration(t *testing.T) {
 	}
 	if msg.totalOpenCount < 0 {
 		t.Errorf("totalOpenCount = %d, want >= 0", msg.totalOpenCount)
+	}
+}
+
+func TestPreflightDoneMsg_ZeroReady_SetsFinished(t *testing.T) {
+	m := initialModel(&noopReporter{})
+	m.width = 80
+	m.height = 24
+
+	msg := preflightDoneMsg{readyCount: 0, blockedCount: 2, inProgressCount: 0, totalOpenCount: 2}
+	result, _ := m.Update(msg)
+	updated := result.(model)
+
+	if updated.status != statusFinished {
+		t.Errorf("status = %q, want %q", updated.status, statusFinished)
+	}
+	if !updated.loopDone {
+		t.Error("loopDone = false, want true")
+	}
+}
+
+func TestPreflightDoneMsg_WithReady_StartsLoop(t *testing.T) {
+	m := initialModel(&noopReporter{})
+	m.width = 80
+	m.height = 24
+
+	msg := preflightDoneMsg{readyCount: 3, blockedCount: 1, inProgressCount: 0, totalOpenCount: 4}
+	result, cmd := m.Update(msg)
+	updated := result.(model)
+
+	if updated.status == statusFinished {
+		t.Error("status should not be statusFinished when ready work exists")
+	}
+	if updated.analytics.initialReady != 3 {
+		t.Errorf("analytics.initialReady = %d, want 3", updated.analytics.initialReady)
+	}
+	if cmd == nil {
+		t.Error("cmd = nil, want non-nil command to start loop")
+	}
+}
+
+func TestPreflightDoneMsg_SeedsInitialReady(t *testing.T) {
+	m := initialModel(&noopReporter{})
+	m.width = 80
+	m.height = 24
+
+	msg := preflightDoneMsg{readyCount: 7, blockedCount: 0, inProgressCount: 0, totalOpenCount: 7}
+	result, _ := m.Update(msg)
+	updated := result.(model)
+
+	if updated.analytics.initialReady != 7 {
+		t.Errorf("analytics.initialReady = %d, want 7", updated.analytics.initialReady)
+	}
+}
+
+func TestPreflightDoneMsg_Error_SetsIdleStatus(t *testing.T) {
+	m := initialModel(&noopReporter{})
+	m.width = 80
+	m.height = 24
+
+	msg := preflightDoneMsg{err: fmt.Errorf("bd not found")}
+	result, cmd := m.Update(msg)
+	updated := result.(model)
+
+	if updated.status != statusIdle {
+		t.Errorf("status = %q, want %q", updated.status, statusIdle)
+	}
+	if updated.statusText != "Preflight failed, starting loop" {
+		t.Errorf("statusText = %q, want %q", updated.statusText, "Preflight failed, starting loop")
+	}
+	if cmd == nil {
+		t.Error("cmd = nil, want non-nil command to start iteration")
 	}
 }

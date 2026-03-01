@@ -142,7 +142,9 @@ type model struct {
 	reviewerFeedback string // stored between reviewer → fixer
 
 	// Reporting
-	reporter Reporter
+	reporter      Reporter
+	hubURL        string
+	hubInstanceID string
 
 	// Context for cancellation
 	ctx    context.Context
@@ -165,8 +167,8 @@ func initialModel(reporter Reporter) model {
 	return model{
 		iteration:       0,
 		maxIter:         *maxIterations,
-		status:          statusIdle,
-		statusText:      "Idle",
+		status:          statusPreflight,
+		statusText:      "Gathering issue census...",
 		activeScreen:    screenHomebase,
 		homebaseVP:      homebaseVP,
 		outputVP:        outputVP,
