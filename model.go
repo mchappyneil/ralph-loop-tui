@@ -77,6 +77,13 @@ type claudeDoneMsg struct {
 }
 type tickMsg time.Time
 
+// bdReadyCheckMsg carries the result of verifying whether ready work remains.
+// Used to prevent premature COMPLETE when closing a task unblocks new ones.
+type bdReadyCheckMsg struct {
+	readyCount int
+	err        error
+}
+
 // Model holds all application state
 type model struct {
 	// Iteration tracking
@@ -122,6 +129,9 @@ type model struct {
 	plannerOutput    string // stored between planner → dev/reviewer/fixer
 	reviewerFeedback string // stored between reviewer → fixer
 
+	// Reporting
+	reporter Reporter
+
 	// Context for cancellation
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -130,7 +140,7 @@ type model struct {
 	program *tea.Program
 }
 
-func initialModel() model {
+func initialModel(reporter Reporter) model {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	homebaseVP := viewport.New(0, 0)
@@ -157,6 +167,7 @@ func initialModel() model {
 		sleep:           time.Duration(*sleepSeconds) * time.Second,
 		epic:            *epicFilter,
 		maxReviewCycles: *maxReviewCycles,
+		reporter:        reporter,
 		ctx:             ctx,
 		cancel:          cancel,
 	}

@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
@@ -20,6 +21,9 @@ var (
 	claudeBin       = flag.String("claude-bin", "claude", "Path to claude CLI")
 	epicFilter      = flag.String("epic", "", "Filter to tasks within a specific epic (e.g., BD-42)")
 	maxReviewCycles = flag.Int("max-review-cycles", 3, "Maximum reviewer/fixer cycles per iteration")
+	hubURL          = flag.String("hub-url", "", "URL of ralph-hub server (env: RALPH_HUB_URL)")
+	hubAPIKey       = flag.String("hub-api-key", "", "API key for ralph-hub (env: RALPH_HUB_API_KEY)")
+	instanceID      = flag.String("instance-id", "", "Instance identifier (default: derived from repo/epic, env: RALPH_INSTANCE_ID)")
 )
 
 // Global program reference for sending messages from goroutines
@@ -27,7 +31,36 @@ var programRef *tea.Program
 
 func main() {
 	flag.Parse()
-	m := initialModel()
+
+	// Env var fallbacks for hub flags
+	hubURLVal := *hubURL
+	if hubURLVal == "" {
+		hubURLVal = os.Getenv("RALPH_HUB_URL")
+	}
+	hubKeyVal := *hubAPIKey
+	if hubKeyVal == "" {
+		hubKeyVal = os.Getenv("RALPH_HUB_API_KEY")
+	}
+	instanceIDVal := *instanceID
+	if instanceIDVal == "" {
+		instanceIDVal = os.Getenv("RALPH_INSTANCE_ID")
+	}
+
+	// Create reporter
+	var reporter Reporter
+	if hubURLVal != "" {
+		reporter = newHTTPReporter(hubURLVal, hubKeyVal, instanceIDVal, *epicFilter)
+	} else {
+		reporter = &noopReporter{}
+	}
+
+	m := initialModel(reporter)
+
+	// Wire analytics pointer so httpReporter gets live data
+	if hr, ok := reporter.(*httpReporter); ok {
+		hr.analytics = &m.analytics
+	}
+
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	programRef = p
 	if _, err := p.Run(); err != nil {
@@ -96,6 +129,31 @@ func runClaudeCmd(ctx context.Context, claudePath, prompt string) tea.Cmd {
 		}
 
 		return claudeDoneMsg{buf.String(), nil}
+	}
+}
+
+// checkBdReady runs "bd ready --json" (with optional epic filter) and returns
+// the count of ready tasks. This is used by the TUI to verify COMPLETE signals
+// from Ralph, since closing a task may unblock dependent tasks.
+func checkBdReady(ctx context.Context, epic string) tea.Cmd {
+	return func() tea.Msg {
+		args := []string{"ready", "--json"}
+		if epic != "" {
+			args = append(args, "--parent", epic)
+		}
+		cmd := exec.CommandContext(ctx, "bd", args...)
+		out, err := cmd.Output()
+		if err != nil {
+			return bdReadyCheckMsg{readyCount: 0, err: fmt.Errorf("bd ready: %w", err)}
+		}
+
+		// bd ready --json outputs a JSON array of issues
+		var issues []json.RawMessage
+		if err := json.Unmarshal(out, &issues); err != nil {
+			// If it's not valid JSON or empty output, treat as 0
+			return bdReadyCheckMsg{readyCount: 0, err: nil}
+		}
+		return bdReadyCheckMsg{readyCount: len(issues), err: nil}
 	}
 }
 
@@ -182,7 +240,9 @@ Your job in each iteration:
 
 6. End condition - CRITICAL:
    - After finishing work on T (either closing it or updating notes on failure):
-     - Run %s again to get the current ready count.
+     - You MUST run %s AFTER the bd close command, not before.
+       Closing a task often unblocks dependent tasks, so the ready count
+       can INCREASE after closing. Always check AFTER.
      - If there are NO READY issues left:
        - Output exactly: <promise>COMPLETE</promise>
        - Include a brief summary of remaining non-ready work or blockers.
@@ -192,6 +252,7 @@ Your job in each iteration:
        - The outer loop will invoke you again for the next task.
 
    **IMPORTANT**: You must complete exactly ONE task per invocation, then STOP. Even if more work is ready, you must exit so the outer loop can track progress and call you again. Working on multiple tasks in one invocation breaks the monitoring system.
+   **IMPORTANT**: Never assume COMPLETE without actually running the bd ready command and examining its output. Closing tasks unblocks dependents.
 
 For operator observability, in every iteration you MUST include at the end of your response a short status block like:
 
