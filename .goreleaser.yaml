@@ -1,0 +1,49 @@
+version: 2
+
+builds:
+  - binary: ralph-loop-go
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+      - -mod=vendor
+    ldflags:
+      - -s -w
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+
+archives:
+  - name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    formats:
+      - tar.gz
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+
+checksum:
+  name_template: "checksums.txt"
+  algorithm: sha256
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
+
+release:
+  github:
+    owner: fireynis
+    name: ralph-loop-tui
+  draft: false
+  name_template: "v{{.Version}}"
