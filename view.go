@@ -93,6 +93,8 @@ func (m model) renderStatusBar() string {
 	// Status with appropriate styling
 	statusDisplay := m.statusText
 	switch m.status {
+	case statusPreflight:
+		statusDisplay = statusRunningStyle.Render(m.statusText)
 	case statusRunning:
 		statusDisplay = statusRunningStyle.Render(m.statusText)
 	case statusCompleted:
