@@ -2,6 +2,7 @@
 set -eu
 
 REPO="fireynis/ralph-loop-tui"
+PROJECT="ralph-loop-tui"
 BINARY="ralph-loop-go"
 
 # Detect OS
@@ -28,7 +29,7 @@ VERSION="${TAG#v}"
 echo "Installing ${BINARY} ${TAG} (${OS}/${ARCH})..."
 
 # Build download URL
-ARCHIVE="${BINARY}_${VERSION}_${OS}_${ARCH}.tar.gz"
+ARCHIVE="${PROJECT}_${VERSION}_${OS}_${ARCH}.tar.gz"
 URL="https://github.com/${REPO}/releases/download/${TAG}/${ARCHIVE}"
 CHECKSUMS_URL="https://github.com/${REPO}/releases/download/${TAG}/checksums.txt"
 
