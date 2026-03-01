@@ -30,6 +30,10 @@ golangci-lint run
 - `-sleep-seconds` (default: 2) - Sleep between iterations
 - `-claude-bin` (default: "claude") - Path to Claude CLI
 - `-epic` (default: "") - Filter to tasks within a specific epic
+- `-max-review-cycles` (default: 3) - Maximum reviewer/fixer cycles per iteration
+- `-hub-url` (default: "", env: RALPH_HUB_URL) - URL of ralph-hub server for centralized reporting
+- `-hub-api-key` (default: "", env: RALPH_HUB_API_KEY) - API key for ralph-hub authentication
+- `-instance-id` (default: derived from repo/epic, env: RALPH_INSTANCE_ID) - Instance identifier
 
 **Dependencies:** Vendored in `vendor/`. After modifying `go.mod`, run `go mod vendor` to update.
 
@@ -96,6 +100,10 @@ notes: <summary>
 ├── styles.go         # lipgloss style definitions
 ├── analytics.go      # analyticsData, iterationRecord, RalphStatus parsing
 ├── jsonparser.go     # Claude stream-json parsing (ParseStreamLine, ExtractFullText)
+├── reporter.go       # Reporter interface, noopReporter, SessionConfig, IterationResult
+├── reporter_events.go # Event types and JSON envelope for ralph-hub
+├── reporter_http.go  # httpReporter: fire-and-forget HTTP POST to ralph-hub
+├── instance_id.go    # Instance ID derivation from git remote / directory / epic
 └── screens/
     ├── homebase.go   # Homebase screen renderer
     ├── output.go     # Output screen renderer with follow/raw toggles
@@ -104,7 +112,18 @@ notes: <summary>
 
 ## Testing
 
-No tests exist yet. When adding tests:
+```bash
+# Run all tests
+go test ./...
+
+# Run with verbose output
+go test -v ./...
+
+# Run short tests only (skips tests requiring external services)
+go test -short ./...
+```
+
+Test files exist for analytics, reporter, reporter events, reporter HTTP, instance ID, and main. When adding new tests:
 - Use `testing.Short()` for tests requiring external services
 - Test the message flow and state transitions
 - Mock `exec.CommandContext` for Claude CLI interactions
