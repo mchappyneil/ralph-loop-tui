@@ -35,6 +35,7 @@ type iterationStatus string
 
 const (
 	statusIdle      iterationStatus = "idle"
+	statusPreflight iterationStatus = "preflight"
 	statusRunning   iterationStatus = "running"
 	statusCompleted iterationStatus = "completed"
 	statusError     iterationStatus = "error"
@@ -82,6 +83,17 @@ type tickMsg time.Time
 type bdReadyCheckMsg struct {
 	readyCount int
 	err        error
+}
+
+// preflightDoneMsg carries census results from bd ready/blocked/list queries
+// run before starting a Claude iteration.
+type preflightDoneMsg struct {
+	readyCount      int
+	blockedCount    int
+	inProgressCount int
+	totalOpenCount  int
+	graphOutput     string
+	err             error
 }
 
 // Model holds all application state
