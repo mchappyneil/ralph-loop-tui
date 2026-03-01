@@ -67,7 +67,7 @@ func main() {
 	m := initialModel(reporter)
 	m.hubURL = hubURLVal
 	if hr, ok := reporter.(*httpReporter); ok {
-		hr.analytics = &m.analytics
+		hr.analytics = m.analytics
 		m.hubInstanceID = hr.instanceID
 	}
 

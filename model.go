@@ -125,7 +125,7 @@ type model struct {
 	followOutput    bool   // Auto-scroll on Output screen
 
 	// Analytics data
-	analytics    analyticsData
+	analytics    *analyticsData
 	sessionStart time.Time
 
 	// Claude execution

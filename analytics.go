@@ -29,8 +29,8 @@ type iterationRecord struct {
 	finalVerdict string // "APPROVED" or "GAVE_UP"
 }
 
-func newAnalyticsData() analyticsData {
-	return analyticsData{
+func newAnalyticsData() *analyticsData {
+	return &analyticsData{
 		sessionStart:     time.Now(),
 		iterationHistory: make([]iterationRecord, 0),
 	}
