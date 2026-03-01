@@ -69,6 +69,10 @@ type AnalyticsData struct {
 	TasksClosed  int
 	LastTask     string
 
+	// Hub reporting
+	HubURL        string
+	HubInstanceID string
+
 	// History
 	IterationHistory []IterationRecord
 }
@@ -212,6 +216,23 @@ func renderTaskPanel(data AnalyticsData) string {
 	}
 	b.WriteString(labelStyle.Render("Last Task:"))
 	b.WriteString(valueStyle.Render(lastTask))
+	b.WriteString("\n\n")
+
+	// Hub reporting
+	b.WriteString(titleStyle.Render("Hub") + "\n\n")
+	if data.HubURL != "" {
+		b.WriteString(labelStyle.Render("Status:"))
+		b.WriteString(passedStyle.Render("enabled"))
+		b.WriteString("\n")
+		b.WriteString(labelStyle.Render("URL:"))
+		b.WriteString(valueStyle.Render(data.HubURL))
+		b.WriteString("\n")
+		b.WriteString(labelStyle.Render("Instance:"))
+		b.WriteString(valueStyle.Render(data.HubInstanceID))
+	} else {
+		b.WriteString(labelStyle.Render("Status:"))
+		b.WriteString(failedStyle.Render("disabled"))
+	}
 
 	return b.String()
 }

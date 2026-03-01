@@ -41,6 +41,10 @@ func main() {
 	if hubKeyVal == "" {
 		hubKeyVal = os.Getenv("RALPH_HUB_API_KEY")
 	}
+	// Detect repo name for hub reporting
+	repoName := resolveRepoName()
+
+	// Instance ID: explicit override > derived from repo/epic
 	instanceIDVal := *instanceID
 	if instanceIDVal == "" {
 		instanceIDVal = os.Getenv("RALPH_INSTANCE_ID")
@@ -50,7 +54,11 @@ func main() {
 	var reporter Reporter
 	if hubURLVal != "" {
 		fmt.Fprintf(os.Stderr, "reporter: hub enabled → %s\n", hubURLVal)
-		reporter = newHTTPReporter(hubURLVal, hubKeyVal, instanceIDVal, *epicFilter)
+		r := newHTTPReporter(hubURLVal, hubKeyVal, repoName, *epicFilter)
+		if instanceIDVal != "" {
+			r.instanceID = instanceIDVal
+		}
+		reporter = r
 	} else {
 		fmt.Fprintln(os.Stderr, "reporter: hub disabled (no RALPH_HUB_URL)")
 		reporter = &noopReporter{}

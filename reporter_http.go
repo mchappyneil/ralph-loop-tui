@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"time"
@@ -175,6 +176,10 @@ func (h *httpReporter) send(ev Event) {
 			fmt.Fprintf(os.Stderr, "reporter: send error: %v\n", err)
 			return
 		}
-		_ = resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
+		if resp.StatusCode >= 400 {
+			respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
+			fmt.Fprintf(os.Stderr, "reporter: hub returned %s for %s: %s\n", resp.Status, ev.Type, respBody)
+		}
 	}()
 }

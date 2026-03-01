@@ -180,6 +180,8 @@ func (m model) buildAnalyticsData() screens.AnalyticsData {
 		CurrentReady:       m.analytics.currentReady,
 		TasksClosed:        m.analytics.tasksClosed,
 		LastTask:           m.analytics.lastTask(),
+		HubURL:             m.hubURL,
+		HubInstanceID:      m.hubInstanceID,
 		IterationHistory:   history,
 	}
 }

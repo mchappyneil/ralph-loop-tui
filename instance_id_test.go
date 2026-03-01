@@ -9,10 +9,17 @@ func TestDeriveInstanceID_ExplicitOverride(t *testing.T) {
 	}
 }
 
-func TestDeriveInstanceID_FallbackToDirectory(t *testing.T) {
+func TestDeriveInstanceID_EmptyRepoReturnsUnknown(t *testing.T) {
 	got := deriveInstanceID("", "")
+	if got != "unknown" {
+		t.Errorf("expected %q, got %q", "unknown", got)
+	}
+}
+
+func TestResolveRepoName_ReturnsNonEmpty(t *testing.T) {
+	got := resolveRepoName()
 	if got == "" {
-		t.Error("expected non-empty instance ID from directory/repo fallback")
+		t.Error("expected non-empty repo name from resolveRepoName()")
 	}
 }
 

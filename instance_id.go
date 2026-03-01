@@ -7,19 +7,22 @@ import (
 	"strings"
 )
 
-// deriveInstanceID resolves an instance identity using the priority chain:
-// explicit override > git remote repo name > directory name > "unknown".
+// resolveRepoName returns a human-readable repo identifier using the chain:
+// git remote repo name > cwd basename > "unknown".
+func resolveRepoName() string {
+	if name := detectRepoName(); name != "" {
+		return name
+	}
+	if wd, err := os.Getwd(); err == nil {
+		return filepath.Base(wd)
+	}
+	return "unknown"
+}
+
+// deriveInstanceID builds an instance identity from a repo name and optional epic.
 // If epic is non-empty, it is appended as /epic (guarding against double-append).
-func deriveInstanceID(explicit, epic string) string {
-	base := explicit
-	if base == "" {
-		base = detectRepoName()
-	}
-	if base == "" {
-		if wd, err := os.Getwd(); err == nil {
-			base = filepath.Base(wd)
-		}
-	}
+func deriveInstanceID(repo, epic string) string {
+	base := repo
 	if base == "" {
 		base = "unknown"
 	}
