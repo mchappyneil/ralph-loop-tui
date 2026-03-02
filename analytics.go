@@ -121,6 +121,19 @@ func (a *analyticsData) estimatedRemaining(currentIter, maxIter int) time.Durati
 	return a.avgDuration() * time.Duration(remaining)
 }
 
+// toEventAnalytics returns a snapshot of the current analytics state for event reporting.
+func (a *analyticsData) toEventAnalytics() EventAnalytics {
+	return EventAnalytics{
+		PassedCount:     a.passedCount,
+		FailedCount:     a.failedCount,
+		TasksClosed:     a.tasksClosed,
+		InitialReady:    a.initialReady,
+		CurrentReady:    a.currentReady,
+		AvgDurationMs:   a.avgDuration().Milliseconds(),
+		TotalDurationMs: a.totalDuration().Milliseconds(),
+	}
+}
+
 // RalphStatus holds parsed status from Ralph's output
 type RalphStatus struct {
 	ReadyBefore int

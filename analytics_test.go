@@ -2,7 +2,42 @@ package main
 
 import (
 	"testing"
+	"time"
 )
+
+func TestToEventAnalytics(t *testing.T) {
+	a := newAnalyticsData()
+	a.initialReady = 5
+	a.currentReady = 3
+
+	// One pass (10s), one fail (20s)
+	a.addIteration(1, 10*time.Second, true, "BD-1", "done", "APPROVED", 0)
+	a.addIteration(2, 20*time.Second, false, "BD-2", "broke", "ERROR", 1)
+
+	ea := a.toEventAnalytics()
+
+	if ea.PassedCount != 1 {
+		t.Errorf("PassedCount = %d, want 1", ea.PassedCount)
+	}
+	if ea.FailedCount != 1 {
+		t.Errorf("FailedCount = %d, want 1", ea.FailedCount)
+	}
+	if ea.TasksClosed != 1 {
+		t.Errorf("TasksClosed = %d, want 1", ea.TasksClosed)
+	}
+	if ea.InitialReady != 5 {
+		t.Errorf("InitialReady = %d, want 5", ea.InitialReady)
+	}
+	if ea.CurrentReady != 3 {
+		t.Errorf("CurrentReady = %d, want 3", ea.CurrentReady)
+	}
+	if ea.AvgDurationMs != 15000 {
+		t.Errorf("AvgDurationMs = %d, want 15000", ea.AvgDurationMs)
+	}
+	if ea.TotalDurationMs != 30000 {
+		t.Errorf("TotalDurationMs = %d, want 30000", ea.TotalDurationMs)
+	}
+}
 
 func TestParseReviewerStatus_Approved(t *testing.T) {
 	output := `[Reviewer status]

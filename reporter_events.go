@@ -1,6 +1,10 @@
 package main
 
-import "time"
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
 
 // EventType identifies the kind of event being reported.
 type EventType string
@@ -49,4 +53,18 @@ type EventAnalytics struct {
 	CurrentReady    int   `json:"current_ready"`
 	AvgDurationMs   int64 `json:"avg_duration_ms"`
 	TotalDurationMs int64 `json:"total_duration_ms"`
+}
+
+// NewEvent constructs a fully populated Event with a UUID and current timestamp.
+func NewEvent(eventType EventType, instanceID, repo, epic string, ctx EventContext, data map[string]any) Event {
+	return Event{
+		ID:         uuid.New().String(),
+		Type:       eventType,
+		Timestamp:  time.Now(),
+		InstanceID: instanceID,
+		Repo:       repo,
+		Epic:       epic,
+		Data:       data,
+		Context:    ctx,
+	}
 }
