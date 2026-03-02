@@ -6,6 +6,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/google/uuid"
 )
 
 // Screen types
@@ -182,6 +183,7 @@ func initialModel(reporter Reporter) model {
 		followOutput:    true,
 		analytics:       newAnalyticsData(),
 		sessionStart:    time.Now(),
+		sessionID:       uuid.New().String(),
 		claudePath:      *claudeBin,
 		sleep:           time.Duration(*sleepSeconds) * time.Second,
 		epic:            *epicFilter,
@@ -197,7 +199,7 @@ func (m *model) endSession(reason string) {
 	if m.sessionEnded {
 		return
 	}
-	_ = m.reporter.SessionEnded(reason)
+	m.sendEvent(EventSessionEnded, map[string]any{"reason": reason})
 	m.sessionEnded = true
 }
 

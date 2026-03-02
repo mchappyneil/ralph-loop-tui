@@ -12,11 +12,11 @@ const maxConsecutiveErrors = 3
 
 // Init starts first iteration and a periodic tick
 func (m model) Init() tea.Cmd {
-	_ = m.reporter.SessionStarted(SessionConfig{
-		MaxIterations:   m.maxIter,
-		SleepSeconds:    int(m.sleep.Seconds()),
-		Epic:            m.epic,
-		MaxReviewCycles: m.maxReviewCycles,
+	m.sendEvent(EventSessionStarted, map[string]any{
+		"max_iterations":    m.maxIter,
+		"sleep_seconds":     int(m.sleep.Seconds()),
+		"epic":              m.epic,
+		"max_review_cycles": m.maxReviewCycles,
 	})
 	return tea.Batch(runPreflight(m.ctx, m.epic), tick())
 }
@@ -138,7 +138,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case startIterationMsg:
 		if m.loopDone || m.iteration >= m.maxIter {
-			_ = m.reporter.PhaseChanged(m.currentPhase.String(), "complete")
+			m.sendEvent(EventPhaseChanged, map[string]any{
+				"from": m.currentPhase.String(),
+				"to":   "complete",
+			})
 			m.endSession("finished")
 			m.status = statusFinished
 			m.statusText = "Finished (max iterations or COMPLETE)"
@@ -166,7 +169,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.rawOutputLog = m.rawOutputLog + fmt.Sprintf("\n\n--- Iteration %d Raw Output ---", m.iteration)
 		}
 
-		_ = m.reporter.IterationStarted(m.iteration, m.currentPhase.String())
+		m.sendEvent(EventIterationStarted, map[string]any{
+			"iteration": m.iteration,
+			"phase":     m.currentPhase.String(),
+		})
 
 		m.appendHomebase(fmt.Sprintf("\n=== Iteration %d of %d ===", m.iteration, m.maxIter))
 		m.appendHomebase(fmt.Sprintf("Start: %s", m.startTime.Format(time.RFC3339)))
@@ -228,12 +234,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Record failed iteration
 			elapsed := m.endTime.Sub(m.startTime)
 			m.analytics.addIteration(m.iteration, elapsed, false, "", msg.err.Error(), "ERROR", 0)
-			_ = m.reporter.IterationCompleted(IterationResult{
-				Iteration:    m.iteration,
-				Duration:     elapsed,
-				Passed:       false,
-				Notes:        msg.err.Error(),
-				FinalVerdict: "ERROR",
+			m.sendEvent(EventIterationCompleted, map[string]any{
+				"iteration":     m.iteration,
+				"duration_ms":   elapsed.Milliseconds(),
+				"passed":        false,
+				"notes":         msg.err.Error(),
+				"final_verdict": "ERROR",
 			})
 
 			// Don't retry if context is cancelled (user quit)
@@ -257,7 +263,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.status = statusFinished
 			m.statusText = "Stopped (repeated Claude errors)"
 			m.appendHomebase(fmt.Sprintf("  %d consecutive errors — stopping loop", m.consecutiveErrors))
-			_ = m.reporter.PhaseChanged(m.currentPhase.String(), "error")
+			m.sendEvent(EventPhaseChanged, map[string]any{
+				"from": m.currentPhase.String(),
+				"to":   "error",
+			})
 			m.endSession("error")
 			return m, ringBell()
 		}
@@ -268,7 +277,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case phasePlanner:
 			m.plannerOutput = ExtractFullText(msg.output)
 			m.currentPhase = phaseDev
-			_ = m.reporter.PhaseChanged("planner", "dev")
+			m.sendEvent(EventPhaseChanged, map[string]any{
+				"from": "planner",
+				"to":   "dev",
+			})
 			m.statusText = fmt.Sprintf("Iteration %d • dev", m.iteration)
 			m.appendHomebase("Phase: dev")
 			return m, runClaudeCmd(m.ctx, m.claudePath, buildDevPrompt(m.epic, m.plannerOutput))
@@ -283,7 +295,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			diff, _ := getGitDiff(m.ctx)
 			m.currentPhase = phaseReviewer
-			_ = m.reporter.PhaseChanged("dev", "reviewer")
+			m.sendEvent(EventPhaseChanged, map[string]any{
+				"from": "dev",
+				"to":   "reviewer",
+			})
 			m.reviewCycle = 1
 			specialist := detectSpecialist(diff)
 			m.statusText = fmt.Sprintf("Iteration %d • reviewer (%d/%d)", m.iteration, m.reviewCycle, m.maxReviewCycles)
@@ -321,14 +336,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 				elapsed := m.endTime.Sub(m.startTime)
 				m.analytics.addIteration(m.iteration, elapsed, passed, taskID, notes, finalVerdict, m.reviewCycle)
-				_ = m.reporter.IterationCompleted(IterationResult{
-					Iteration:    m.iteration,
-					Duration:     elapsed,
-					TaskID:       taskID,
-					Passed:       passed,
-					Notes:        notes,
-					FinalVerdict: finalVerdict,
-					ReviewCycles: m.reviewCycle,
+				m.sendEvent(EventIterationCompleted, map[string]any{
+					"iteration":     m.iteration,
+					"duration_ms":   elapsed.Milliseconds(),
+					"task_id":       taskID,
+					"passed":        passed,
+					"notes":         notes,
+					"final_verdict": finalVerdict,
+					"review_cycles": m.reviewCycle,
 				})
 
 				m.appendHomebase(fmt.Sprintf("Iteration %d complete. Duration: %s | Verdict: %s | Cycles: %d",
@@ -350,7 +365,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.reviewerFeedback = ExtractFullText(msg.output)
 			m.reviewCycle++
 			m.currentPhase = phaseFixer
-			_ = m.reporter.PhaseChanged("reviewer", "fixer")
+			m.sendEvent(EventPhaseChanged, map[string]any{
+				"from": "reviewer",
+				"to":   "fixer",
+			})
 			m.statusText = fmt.Sprintf("Iteration %d • fixer", m.iteration)
 			m.appendHomebase(fmt.Sprintf("Phase: fixer (reviewer cycle %d/%d requested changes)", m.reviewCycle-1, m.maxReviewCycles))
 			return m, runClaudeCmd(m.ctx, m.claudePath, buildFixerPrompt(m.epic, m.plannerOutput, m.reviewerFeedback))
@@ -358,7 +376,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case phaseFixer:
 			diff, _ := getGitDiff(m.ctx)
 			m.currentPhase = phaseReviewer
-			_ = m.reporter.PhaseChanged("fixer", "reviewer")
+			m.sendEvent(EventPhaseChanged, map[string]any{
+				"from": "fixer",
+				"to":   "reviewer",
+			})
 			specialist := detectSpecialist(diff)
 			m.statusText = fmt.Sprintf("Iteration %d • reviewer (%d/%d)", m.iteration, m.reviewCycle, m.maxReviewCycles)
 			m.appendHomebase(fmt.Sprintf("Phase: reviewer (cycle %d/%d)", m.reviewCycle, m.maxReviewCycles))
@@ -393,13 +414,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				taskID = ralphStatus.Task
 			}
 			m.analytics.addIteration(m.iteration, elapsed, true, taskID, "COMPLETE overridden — ready work remains", "OVERRIDE", 0)
-			_ = m.reporter.IterationCompleted(IterationResult{
-				Iteration:    m.iteration,
-				Duration:     elapsed,
-				TaskID:       taskID,
-				Passed:       true,
-				Notes:        "COMPLETE overridden — ready work remains",
-				FinalVerdict: "OVERRIDE",
+			m.sendEvent(EventIterationCompleted, map[string]any{
+				"iteration":     m.iteration,
+				"duration_ms":   elapsed.Milliseconds(),
+				"task_id":       taskID,
+				"passed":        true,
+				"notes":         "COMPLETE overridden — ready work remains",
+				"final_verdict": "OVERRIDE",
 			})
 
 			return m, tea.Tick(m.sleep, func(time.Time) tea.Msg {
@@ -420,15 +441,18 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			taskID = ralphStatus.Task
 		}
 		m.analytics.addIteration(m.iteration, elapsed, true, taskID, "No ready work remaining (verified)", "COMPLETE", 0)
-		_ = m.reporter.IterationCompleted(IterationResult{
-			Iteration:    m.iteration,
-			Duration:     elapsed,
-			TaskID:       taskID,
-			Passed:       true,
-			Notes:        "No ready work remaining (verified)",
-			FinalVerdict: "COMPLETE",
+		m.sendEvent(EventIterationCompleted, map[string]any{
+			"iteration":     m.iteration,
+			"duration_ms":   elapsed.Milliseconds(),
+			"task_id":       taskID,
+			"passed":        true,
+			"notes":         "No ready work remaining (verified)",
+			"final_verdict": "COMPLETE",
 		})
-		_ = m.reporter.PhaseChanged(m.currentPhase.String(), "complete")
+		m.sendEvent(EventPhaseChanged, map[string]any{
+			"from": m.currentPhase.String(),
+			"to":   "complete",
+		})
 		m.endSession("complete")
 
 		m.appendHomebase("  Verified: no ready work remains. Loop finished.")

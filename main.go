@@ -54,22 +54,23 @@ func main() {
 	var reporter Reporter
 	if hubURLVal != "" {
 		fmt.Fprintf(os.Stderr, "reporter: hub enabled → %s\n", hubURLVal)
-		r := newHTTPReporter(hubURLVal, hubKeyVal, repoName, *epicFilter)
-		if instanceIDVal != "" {
-			r.instanceID = instanceIDVal
-		}
-		reporter = r
+		reporter = newHTTPReporter(hubURLVal, hubKeyVal, repoName, *epicFilter)
 	} else {
 		fmt.Fprintln(os.Stderr, "reporter: hub disabled (no RALPH_HUB_URL)")
 		reporter = &noopReporter{}
 	}
 
+	// Derive instance ID: explicit override > derived from repo/epic
+	derivedID := deriveInstanceID(repoName, *epicFilter)
+	if instanceIDVal != "" {
+		derivedID = instanceIDVal
+	}
+
 	m := initialModel(reporter)
 	m.hubURL = hubURLVal
-	if hr, ok := reporter.(*httpReporter); ok {
-		hr.analytics = m.analytics
-		m.hubInstanceID = hr.instanceID
-	}
+	m.repo = repoName
+	m.instanceID = derivedID
+	m.hubInstanceID = derivedID
 
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	programRef = p

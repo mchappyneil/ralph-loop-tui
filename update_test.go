@@ -8,62 +8,19 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// spyReporter records all Reporter method calls for test assertions.
+// spyReporter records all events dispatched via Send for test assertions.
 type spyReporter struct {
-	calls []spyCall
+	events []Event
 }
 
-type spyCall struct {
-	method string
-	args   map[string]any
-}
+func (s *spyReporter) Send(ev Event) { s.events = append(s.events, ev) }
+func (s *spyReporter) Close() error  { return nil }
 
-func (s *spyReporter) SessionStarted(config SessionConfig) error {
-	s.calls = append(s.calls, spyCall{"SessionStarted", map[string]any{"config": config}})
-	return nil
-}
-
-func (s *spyReporter) SessionEnded(reason string) error {
-	s.calls = append(s.calls, spyCall{"SessionEnded", map[string]any{"reason": reason}})
-	return nil
-}
-
-func (s *spyReporter) IterationStarted(iteration int, phase string) error {
-	s.calls = append(s.calls, spyCall{"IterationStarted", map[string]any{"iteration": iteration, "phase": phase}})
-	return nil
-}
-
-func (s *spyReporter) IterationCompleted(result IterationResult) error {
-	s.calls = append(s.calls, spyCall{"IterationCompleted", map[string]any{"result": result}})
-	return nil
-}
-
-func (s *spyReporter) PhaseChanged(from, to string) error {
-	s.calls = append(s.calls, spyCall{"PhaseChanged", map[string]any{"from": from, "to": to}})
-	return nil
-}
-
-func (s *spyReporter) TaskClaimed(taskID, description string) error {
-	s.calls = append(s.calls, spyCall{"TaskClaimed", map[string]any{"taskID": taskID, "description": description}})
-	return nil
-}
-
-func (s *spyReporter) TaskClosed(taskID, commitHash string) error {
-	s.calls = append(s.calls, spyCall{"TaskClosed", map[string]any{"taskID": taskID, "commitHash": commitHash}})
-	return nil
-}
-
-func (s *spyReporter) PrepareShutdown(string) {}
-func (s *spyReporter) Send(ev Event) {
-	s.calls = append(s.calls, spyCall{"Send", map[string]any{"event": ev}})
-}
-func (s *spyReporter) Close() error           { return nil }
-
-func (s *spyReporter) callsOf(method string) []spyCall {
-	var out []spyCall
-	for _, c := range s.calls {
-		if c.method == method {
-			out = append(out, c)
+func (s *spyReporter) eventsOfType(t EventType) []Event {
+	var out []Event
+	for _, ev := range s.events {
+		if ev.Type == t {
+			out = append(out, ev)
 		}
 	}
 	return out
@@ -82,16 +39,16 @@ func TestBdReadyCheckComplete_SendsPhaseChangedToComplete(t *testing.T) {
 	msg := bdReadyCheckMsg{readyCount: 0, err: nil}
 	m.Update(msg)
 
-	phaseChanges := spy.callsOf("PhaseChanged")
+	phaseChanges := spy.eventsOfType(EventPhaseChanged)
 	found := false
-	for _, c := range phaseChanges {
-		if c.args["to"] == "complete" {
+	for _, ev := range phaseChanges {
+		if ev.Data["to"] == "complete" {
 			found = true
 			break
 		}
 	}
 	if !found {
-		t.Errorf("expected PhaseChanged to 'complete', got calls: %v", spy.calls)
+		t.Errorf("expected PhaseChanged to 'complete', got events: %v", spy.events)
 	}
 }
 
@@ -108,12 +65,12 @@ func TestBdReadyCheckComplete_SendsSessionEnded(t *testing.T) {
 	msg := bdReadyCheckMsg{readyCount: 0, err: nil}
 	m.Update(msg)
 
-	sessionEnds := spy.callsOf("SessionEnded")
+	sessionEnds := spy.eventsOfType(EventSessionEnded)
 	if len(sessionEnds) == 0 {
-		t.Fatal("expected SessionEnded call, got none")
+		t.Fatal("expected SessionEnded event, got none")
 	}
-	if sessionEnds[0].args["reason"] != "complete" {
-		t.Errorf("SessionEnded reason = %q, want %q", sessionEnds[0].args["reason"], "complete")
+	if sessionEnds[0].Data["reason"] != "complete" {
+		t.Errorf("SessionEnded reason = %q, want %q", sessionEnds[0].Data["reason"], "complete")
 	}
 }
 
@@ -126,9 +83,9 @@ func TestPreflightZeroReady_SendsSessionEnded(t *testing.T) {
 	msg := preflightDoneMsg{readyCount: 0, blockedCount: 2, inProgressCount: 0, totalOpenCount: 2}
 	m.Update(msg)
 
-	sessionEnds := spy.callsOf("SessionEnded")
+	sessionEnds := spy.eventsOfType(EventSessionEnded)
 	if len(sessionEnds) == 0 {
-		t.Fatal("expected SessionEnded call when preflight finds no ready work, got none")
+		t.Fatal("expected SessionEnded event when preflight finds no ready work, got none")
 	}
 }
 
@@ -144,16 +101,16 @@ func TestMaxIterationsReached_SendsPhaseChangedToComplete(t *testing.T) {
 	msg := startIterationMsg{}
 	m.Update(msg)
 
-	phaseChanges := spy.callsOf("PhaseChanged")
+	phaseChanges := spy.eventsOfType(EventPhaseChanged)
 	found := false
-	for _, c := range phaseChanges {
-		if c.args["to"] == "complete" {
+	for _, ev := range phaseChanges {
+		if ev.Data["to"] == "complete" {
 			found = true
 			break
 		}
 	}
 	if !found {
-		t.Errorf("expected PhaseChanged to 'complete' on max iterations, got calls: %v", spy.calls)
+		t.Errorf("expected PhaseChanged to 'complete' on max iterations, got events: %v", spy.events)
 	}
 }
 
@@ -183,9 +140,9 @@ func TestClaudeError_FirstError_ContinuesLoop(t *testing.T) {
 		t.Errorf("consecutiveErrors = %d, want 1", updated.consecutiveErrors)
 	}
 	// Should NOT send SessionEnded since we're recovering
-	sessionEnds := spy.callsOf("SessionEnded")
+	sessionEnds := spy.eventsOfType(EventSessionEnded)
 	if len(sessionEnds) != 0 {
-		t.Errorf("should not send SessionEnded on recoverable error, got %d calls", len(sessionEnds))
+		t.Errorf("should not send SessionEnded on recoverable error, got %d events", len(sessionEnds))
 	}
 }
 
@@ -208,12 +165,12 @@ func TestClaudeError_MaxConsecutiveErrors_SendsSessionEnded(t *testing.T) {
 		t.Errorf("status = %q, want %q after max consecutive errors", updated.status, statusFinished)
 	}
 	// Should send SessionEnded since retries exhausted
-	sessionEnds := spy.callsOf("SessionEnded")
+	sessionEnds := spy.eventsOfType(EventSessionEnded)
 	if len(sessionEnds) == 0 {
-		t.Fatal("expected SessionEnded call after max consecutive errors, got none")
+		t.Fatal("expected SessionEnded event after max consecutive errors, got none")
 	}
-	if sessionEnds[0].args["reason"] != "error" {
-		t.Errorf("SessionEnded reason = %q, want %q", sessionEnds[0].args["reason"], "error")
+	if sessionEnds[0].Data["reason"] != "error" {
+		t.Errorf("SessionEnded reason = %q, want %q", sessionEnds[0].Data["reason"], "error")
 	}
 	// Loop should stop — cmd may be ringBell() but status must be finished
 	_ = cmd // ringBell is acceptable here
@@ -282,13 +239,13 @@ func TestSessionEnded_NotDuplicated_OnQuitAfterComplete(t *testing.T) {
 	quitResult, _ := updated.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
 	_ = quitResult
 
-	// Should have exactly 1 SessionEnded call (complete), not 2
-	sessionEnds := spy.callsOf("SessionEnded")
+	// Should have exactly 1 SessionEnded event (complete), not 2
+	sessionEnds := spy.eventsOfType(EventSessionEnded)
 	if len(sessionEnds) != 1 {
-		t.Errorf("expected exactly 1 SessionEnded call, got %d: %v", len(sessionEnds), sessionEnds)
+		t.Errorf("expected exactly 1 SessionEnded event, got %d: %v", len(sessionEnds), sessionEnds)
 	}
-	if len(sessionEnds) > 0 && sessionEnds[0].args["reason"] != "complete" {
-		t.Errorf("SessionEnded reason = %q, want %q", sessionEnds[0].args["reason"], "complete")
+	if len(sessionEnds) > 0 && sessionEnds[0].Data["reason"] != "complete" {
+		t.Errorf("SessionEnded reason = %q, want %q", sessionEnds[0].Data["reason"], "complete")
 	}
 }
 
@@ -305,12 +262,12 @@ func TestDefaultPhase_SendsSessionEnded(t *testing.T) {
 	msg := claudeDoneMsg{output: "some output", err: nil}
 	m.Update(msg)
 
-	sessionEnds := spy.callsOf("SessionEnded")
+	sessionEnds := spy.eventsOfType(EventSessionEnded)
 	if len(sessionEnds) == 0 {
-		t.Fatal("expected SessionEnded call for unknown phase error, got none")
+		t.Fatal("expected SessionEnded event for unknown phase error, got none")
 	}
-	if sessionEnds[0].args["reason"] != "error" {
-		t.Errorf("SessionEnded reason = %q, want %q", sessionEnds[0].args["reason"], "error")
+	if sessionEnds[0].Data["reason"] != "error" {
+		t.Errorf("SessionEnded reason = %q, want %q", sessionEnds[0].Data["reason"], "error")
 	}
 }
 
@@ -367,11 +324,10 @@ func TestSendEvent_DispatchesThroughReporter(t *testing.T) {
 
 	m.sendEvent(EventTaskClaimed, map[string]any{"task_id": "BD-1"})
 
-	sends := spy.callsOf("Send")
-	if len(sends) != 1 {
-		t.Fatalf("expected 1 Send call, got %d", len(sends))
+	if len(spy.events) != 1 {
+		t.Fatalf("expected 1 event, got %d", len(spy.events))
 	}
-	ev := sends[0].args["event"].(Event)
+	ev := spy.events[0]
 	if ev.Type != EventTaskClaimed {
 		t.Errorf("event type = %q, want %q", ev.Type, EventTaskClaimed)
 	}
