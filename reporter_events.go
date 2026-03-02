@@ -15,8 +15,6 @@ const (
 	EventIterationStarted   EventType = "iteration.started"
 	EventIterationCompleted EventType = "iteration.completed"
 	EventPhaseChanged       EventType = "phase.changed"
-	EventTaskClaimed        EventType = "task.claimed"
-	EventTaskClosed         EventType = "task.closed"
 )
 
 // Event is the envelope sent to ralph-hub for every reportable occurrence.

@@ -69,8 +69,6 @@ func TestAllEventTypesAreDefined(t *testing.T) {
 		EventIterationStarted,
 		EventIterationCompleted,
 		EventPhaseChanged,
-		EventTaskClaimed,
-		EventTaskClosed,
 	}
 	for _, et := range expected {
 		if et == "" {

@@ -322,14 +322,14 @@ func TestSendEvent_DispatchesThroughReporter(t *testing.T) {
 	m.currentPhase = phaseDev
 	m.status = statusRunning
 
-	m.sendEvent(EventTaskClaimed, map[string]any{"task_id": "BD-1"})
+	m.sendEvent(EventPhaseChanged, map[string]any{"task_id": "BD-1"})
 
 	if len(spy.events) != 1 {
 		t.Fatalf("expected 1 event, got %d", len(spy.events))
 	}
 	ev := spy.events[0]
-	if ev.Type != EventTaskClaimed {
-		t.Errorf("event type = %q, want %q", ev.Type, EventTaskClaimed)
+	if ev.Type != EventPhaseChanged {
+		t.Errorf("event type = %q, want %q", ev.Type, EventPhaseChanged)
 	}
 	if ev.InstanceID != "test-instance" {
 		t.Errorf("InstanceID = %q, want %q", ev.InstanceID, "test-instance")
