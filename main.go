@@ -9,8 +9,10 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"os/signal"
 	"regexp"
 	"strings"
+	"syscall"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -71,6 +73,15 @@ func main() {
 	m.repo = repoName
 	m.instanceID = derivedID
 	m.hubInstanceID = derivedID
+
+	// Ensure reporter.Close() runs on signal exit
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGTERM, syscall.SIGINT)
+	go func() {
+		<-sigCh
+		_ = reporter.Close()
+		os.Exit(1)
+	}()
 
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	programRef = p
