@@ -53,7 +53,11 @@ func (s *spyReporter) TaskClosed(taskID, commitHash string) error {
 	return nil
 }
 
-func (s *spyReporter) Close() error { return nil }
+func (s *spyReporter) PrepareShutdown(string) {}
+func (s *spyReporter) Send(ev Event) {
+	s.calls = append(s.calls, spyCall{"Send", map[string]any{"event": ev}})
+}
+func (s *spyReporter) Close() error           { return nil }
 
 func (s *spyReporter) callsOf(method string) []spyCall {
 	var out []spyCall
@@ -307,5 +311,80 @@ func TestDefaultPhase_SendsSessionEnded(t *testing.T) {
 	}
 	if sessionEnds[0].args["reason"] != "error" {
 		t.Errorf("SessionEnded reason = %q, want %q", sessionEnds[0].args["reason"], "error")
+	}
+}
+
+func TestBuildEventContext_SnapshotsModelState(t *testing.T) {
+	spy := &spyReporter{}
+	m := initialModel(spy)
+	m.sessionID = "test-session-123"
+	m.iteration = 3
+	m.maxIter = 10
+	m.currentPhase = phaseReviewer
+	m.status = statusRunning
+
+	ctx := m.buildEventContext()
+
+	if ctx.SessionID != "test-session-123" {
+		t.Errorf("SessionID = %q, want %q", ctx.SessionID, "test-session-123")
+	}
+	if ctx.CurrentIteration != 3 {
+		t.Errorf("CurrentIteration = %d, want 3", ctx.CurrentIteration)
+	}
+	if ctx.MaxIterations != 10 {
+		t.Errorf("MaxIterations = %d, want 10", ctx.MaxIterations)
+	}
+	if ctx.Status != "running" {
+		t.Errorf("Status = %q, want %q", ctx.Status, "running")
+	}
+	if ctx.CurrentPhase != "reviewer" {
+		t.Errorf("CurrentPhase = %q, want %q", ctx.CurrentPhase, "reviewer")
+	}
+}
+
+func TestBuildEventContext_StatusEnded_WhenFinished(t *testing.T) {
+	spy := &spyReporter{}
+	m := initialModel(spy)
+	m.status = statusFinished
+
+	ctx := m.buildEventContext()
+
+	if ctx.Status != "ended" {
+		t.Errorf("Status = %q, want %q for statusFinished", ctx.Status, "ended")
+	}
+}
+
+func TestSendEvent_DispatchesThroughReporter(t *testing.T) {
+	spy := &spyReporter{}
+	m := initialModel(spy)
+	m.sessionID = "test-session"
+	m.instanceID = "test-instance"
+	m.repo = "test-repo"
+	m.epic = "test-epic"
+	m.iteration = 2
+	m.currentPhase = phaseDev
+	m.status = statusRunning
+
+	m.sendEvent(EventTaskClaimed, map[string]any{"task_id": "BD-1"})
+
+	sends := spy.callsOf("Send")
+	if len(sends) != 1 {
+		t.Fatalf("expected 1 Send call, got %d", len(sends))
+	}
+	ev := sends[0].args["event"].(Event)
+	if ev.Type != EventTaskClaimed {
+		t.Errorf("event type = %q, want %q", ev.Type, EventTaskClaimed)
+	}
+	if ev.InstanceID != "test-instance" {
+		t.Errorf("InstanceID = %q, want %q", ev.InstanceID, "test-instance")
+	}
+	if ev.Repo != "test-repo" {
+		t.Errorf("Repo = %q, want %q", ev.Repo, "test-repo")
+	}
+	if ev.Epic != "test-epic" {
+		t.Errorf("Epic = %q, want %q", ev.Epic, "test-epic")
+	}
+	if ev.Context.SessionID != "test-session" {
+		t.Errorf("Context.SessionID = %q, want %q", ev.Context.SessionID, "test-session")
 	}
 }

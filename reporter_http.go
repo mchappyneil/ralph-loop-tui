@@ -73,6 +73,14 @@ func (h *httpReporter) SessionEnded(reason string) error {
 	return nil
 }
 
+// PrepareShutdown sets status="ended" and currentPhase so that all subsequent
+// events carry the final context. Must be called before any completion-batch
+// events (IterationCompleted, PhaseChanged, SessionEnded) are fired.
+func (h *httpReporter) PrepareShutdown(phase string) {
+	h.status = "ended"
+	h.currentPhase = phase
+}
+
 func (h *httpReporter) IterationStarted(iteration int, phase string) error {
 	h.currentIteration = iteration
 	h.currentPhase = phase
@@ -119,6 +127,10 @@ func (h *httpReporter) TaskClosed(taskID, commitHash string) error {
 		"commit_hash": commitHash,
 	}))
 	return nil
+}
+
+func (h *httpReporter) Send(ev Event) {
+	h.send(ev)
 }
 
 // buildEvent constructs a full Event envelope with a context snapshot.

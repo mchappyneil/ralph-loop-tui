@@ -32,6 +32,16 @@ type Reporter interface {
 	PhaseChanged(from, to string) error
 	TaskClaimed(taskID, description string) error
 	TaskClosed(taskID, commitHash string) error
+
+	// PrepareShutdown sets the reporter's internal status and phase to their
+	// final values before any completion events are built. This ensures every
+	// event in the completion batch carries the same context snapshot, preventing
+	// out-of-order delivery from overwriting the hub's instance state.
+	PrepareShutdown(phase string)
+
+	// Send dispatches a pre-built Event to the hub.
+	Send(event Event)
+
 	Close() error
 }
 
@@ -45,4 +55,6 @@ func (n *noopReporter) IterationCompleted(IterationResult) error { return nil }
 func (n *noopReporter) PhaseChanged(string, string) error        { return nil }
 func (n *noopReporter) TaskClaimed(string, string) error         { return nil }
 func (n *noopReporter) TaskClosed(string, string) error          { return nil }
+func (n *noopReporter) PrepareShutdown(string)                   {}
+func (n *noopReporter) Send(Event)                               {}
 func (n *noopReporter) Close() error                             { return nil }

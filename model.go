@@ -146,7 +146,10 @@ type model struct {
 	reporter      Reporter
 	hubURL        string
 	hubInstanceID string
-	sessionEnded  bool // prevents duplicate SessionEnded calls
+	sessionEnded  bool   // prevents duplicate SessionEnded calls
+	sessionID     string // unique ID for this session
+	repo          string // repository name for event reporting
+	instanceID    string // instance ID for event reporting
 
 	// Context for cancellation
 	ctx    context.Context
@@ -196,6 +199,29 @@ func (m *model) endSession(reason string) {
 	}
 	_ = m.reporter.SessionEnded(reason)
 	m.sessionEnded = true
+}
+
+// buildEventContext creates an EventContext snapshot from the model's current state.
+func (m *model) buildEventContext() EventContext {
+	status := "running"
+	if m.status == statusFinished {
+		status = "ended"
+	}
+	return EventContext{
+		SessionID:        m.sessionID,
+		SessionStart:     m.sessionStart,
+		MaxIterations:    m.maxIter,
+		CurrentIteration: m.iteration,
+		Status:           status,
+		CurrentPhase:     m.currentPhase.String(),
+		Analytics:        m.analytics.toEventAnalytics(),
+	}
+}
+
+// sendEvent builds and dispatches an event through the reporter.
+func (m *model) sendEvent(eventType EventType, data map[string]any) {
+	m.reporter.Send(NewEvent(eventType, m.instanceID, m.repo, m.epic,
+		m.buildEventContext(), data))
 }
 
 // appendHomebase adds a line to the homebase content
