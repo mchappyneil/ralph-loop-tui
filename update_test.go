@@ -206,11 +206,11 @@ func TestClaudeSuccess_ResetsConsecutiveErrors(t *testing.T) {
 	m.height = 24
 	m.iteration = 1
 	m.startTime = time.Now().Add(-10 * time.Second)
-	m.currentPhase = phasePlanner
+	m.currentPhase = phaseContextGatherer
 	m.status = statusRunning
 	m.consecutiveErrors = 2 // Had errors before
 
-	// Successful planner output
+	// Successful context-gatherer output
 	msg := claudeDoneMsg{output: `{"type":"text","text":"plan here"}`, err: nil}
 	result, _ := m.Update(msg)
 	updated := result.(model)
