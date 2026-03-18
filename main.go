@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"syscall"
@@ -416,6 +417,16 @@ specialist: %s
 issues:
 - <issue 1, or "none" if approved>
 notes: <1-2 sentence summary>`, specialist, plannerOutput, diff, specialist)
+}
+
+// ralphContextCachePath returns the absolute path to the instance-scoped context cache file.
+// The file lives in the working directory (repo root) and is named .ralph-context-<instanceID>.md.
+func ralphContextCachePath(instanceID string) string {
+	cwd, err := os.Getwd()
+	if err != nil {
+		cwd = "."
+	}
+	return filepath.Join(cwd, ".ralph-context-"+instanceID+".md")
 }
 
 // buildFixerPrompt produces the prompt for the fixer phase.

@@ -1,3 +1,4 @@
 .worktrees/
 ralph-loop-go
 dist/
+/.ralph-context-*.md

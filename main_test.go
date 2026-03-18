@@ -92,3 +92,13 @@ func TestBuildFixerPrompt_ContainsFeedback(t *testing.T) {
 		t.Error("fixer prompt missing reviewer feedback")
 	}
 }
+
+func TestRalphContextCachePath(t *testing.T) {
+	path := ralphContextCachePath("my-repo-BD-42")
+	if !strings.HasSuffix(path, ".ralph-context-my-repo-BD-42.md") {
+		t.Errorf("unexpected cache path: %q", path)
+	}
+	if !strings.HasPrefix(path, "/") {
+		t.Errorf("cache path should be absolute, got: %q", path)
+	}
+}
