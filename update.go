@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -151,14 +152,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.startTime = time.Now()
 		m.endTime = time.Time{}
 		m.status = statusRunning
-		m.statusText = fmt.Sprintf("Iteration %d • planner", m.iteration)
+		m.statusText = fmt.Sprintf("Iteration %d • context-gatherer", m.iteration)
 		m.lastError = ""
 		m.rawOutput = ""
 
 		// Reset phase pipeline state for this iteration
-		m.currentPhase = phasePlanner
+		m.currentPhase = phaseContextGatherer
 		m.reviewCycle = 0
-		m.plannerOutput = ""
+		m.gathererOutput = ""
 		m.reviewerFeedback = ""
 
 		// Add iteration header to output screens
@@ -176,9 +177,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		m.appendHomebase(fmt.Sprintf("\n=== Iteration %d of %d ===", m.iteration, m.maxIter))
 		m.appendHomebase(fmt.Sprintf("Start: %s", m.startTime.Format(time.RFC3339)))
-		m.appendHomebase("Phase: planner")
+		m.appendHomebase("Phase: context-gatherer")
 
-		return m, runClaudeCmd(m.ctx, m.claudePath, buildPlannerPrompt(m.epic))
+		return m, runClaudeCmd(m.ctx, m.claudePath, buildContextGathererPrompt(m.epic, m.instanceID))
 
 	case claudeOutputLineMsg:
 		// Handle streaming output - parse and display each line as it arrives
@@ -274,16 +275,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.consecutiveErrors = 0
 
 		switch m.currentPhase {
-		case phasePlanner:
-			m.plannerOutput = ExtractFullText(msg.output)
+		case phaseContextGatherer:
+			m.gathererOutput = ExtractFullText(msg.output)
 			m.currentPhase = phaseDev
 			m.sendEvent(EventPhaseChanged, map[string]any{
-				"from": "planner",
+				"from": "context-gatherer",
 				"to":   "dev",
 			})
 			m.statusText = fmt.Sprintf("Iteration %d • dev", m.iteration)
 			m.appendHomebase("Phase: dev")
-			return m, runClaudeCmd(m.ctx, m.claudePath, buildDevPrompt(m.epic, m.plannerOutput))
+			return m, runClaudeCmd(m.ctx, m.claudePath, buildDevPrompt(m.epic, m.gathererOutput))
 
 		case phaseDev:
 			if strings.Contains(msg.output, "<promise>COMPLETE</promise>") {
@@ -303,7 +304,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			specialist := detectSpecialist(diff)
 			m.statusText = fmt.Sprintf("Iteration %d • reviewer (%d/%d)", m.iteration, m.reviewCycle, m.maxReviewCycles)
 			m.appendHomebase(fmt.Sprintf("Phase: reviewer (cycle %d/%d)", m.reviewCycle, m.maxReviewCycles))
-			return m, runClaudeCmd(m.ctx, m.claudePath, buildReviewerPrompt(m.plannerOutput, diff, specialist))
+			return m, runClaudeCmd(m.ctx, m.claudePath, buildReviewerPrompt(m.gathererOutput, diff, specialist))
 
 		case phaseReviewer:
 			reviewerStatus := parseReviewerStatus(msg.output)
@@ -371,7 +372,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			})
 			m.statusText = fmt.Sprintf("Iteration %d • fixer", m.iteration)
 			m.appendHomebase(fmt.Sprintf("Phase: fixer (reviewer cycle %d/%d requested changes)", m.reviewCycle-1, m.maxReviewCycles))
-			return m, runClaudeCmd(m.ctx, m.claudePath, buildFixerPrompt(m.epic, m.plannerOutput, m.reviewerFeedback))
+			return m, runClaudeCmd(m.ctx, m.claudePath, buildFixerPrompt(m.epic, m.gathererOutput, m.reviewerFeedback))
 
 		case phaseFixer:
 			diff, _ := getGitDiff(m.ctx)
@@ -383,7 +384,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			specialist := detectSpecialist(diff)
 			m.statusText = fmt.Sprintf("Iteration %d • reviewer (%d/%d)", m.iteration, m.reviewCycle, m.maxReviewCycles)
 			m.appendHomebase(fmt.Sprintf("Phase: reviewer (cycle %d/%d)", m.reviewCycle, m.maxReviewCycles))
-			return m, runClaudeCmd(m.ctx, m.claudePath, buildReviewerPrompt(m.plannerOutput, diff, specialist))
+			return m, runClaudeCmd(m.ctx, m.claudePath, buildReviewerPrompt(m.gathererOutput, diff, specialist))
 
 		default:
 			m.status = statusFinished
@@ -428,7 +429,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			})
 		}
 
-		// Verified: no ready work remains
+		// Verified: no ready work remains — clean up cache file
+		_ = os.Remove(ralphContextCachePath(m.instanceID))
 		m.loopDone = true
 		m.status = statusFinished
 		m.statusText = "Ralph reported COMPLETE (verified)"

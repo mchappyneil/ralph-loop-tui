@@ -47,7 +47,7 @@ const (
 type iterationPhase int
 
 const (
-	phasePlanner  iterationPhase = iota
+	phaseContextGatherer  iterationPhase = iota
 	phaseDev
 	phaseReviewer
 	phaseFixer
@@ -55,8 +55,8 @@ const (
 
 func (p iterationPhase) String() string {
 	switch p {
-	case phasePlanner:
-		return "planner"
+	case phaseContextGatherer:
+		return "context-gatherer"
 	case phaseDev:
 		return "dev"
 	case phaseReviewer:
@@ -140,7 +140,7 @@ type model struct {
 	reviewCycle       int // current review cycle (1-based)
 	maxReviewCycles   int // from -max-review-cycles flag
 	consecutiveErrors int // consecutive Claude errors; reset on success
-	plannerOutput    string // stored between planner → dev/reviewer/fixer
+	gathererOutput    string // stored between context-gatherer → dev/reviewer/fixer
 	reviewerFeedback string // stored between reviewer → fixer
 
 	// Reporting

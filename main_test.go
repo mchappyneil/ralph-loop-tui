@@ -44,32 +44,44 @@ func TestDetectSpecialist_Unknown(t *testing.T) {
 	}
 }
 
-func TestBuildDevPrompt_ContainsPlannerOutput(t *testing.T) {
-	plannerOutput := "PLAN: step 1, step 2"
-	prompt := buildDevPrompt("", plannerOutput)
-	if !strings.Contains(prompt, "Here is your implementation plan:") {
-		t.Error("dev prompt missing plan header")
+func TestBuildDevPrompt_ContainsGathererOutput(t *testing.T) {
+	gathererOutput := "[Context Gatherer output]\ntask: BD-1\npatterns:\nUse table-driven tests."
+	prompt := buildDevPrompt("", gathererOutput)
+	if !strings.Contains(prompt, "Here is the codebase context gathered for this task:") {
+		t.Error("dev prompt missing gatherer context header")
 	}
-	if !strings.Contains(prompt, plannerOutput) {
-		t.Error("dev prompt missing planner output content")
+	if !strings.Contains(prompt, gathererOutput) {
+		t.Error("dev prompt missing gatherer output content")
 	}
 }
 
-func TestBuildPlannerPrompt_ContainsAnalysisOnly(t *testing.T) {
-	prompt := buildPlannerPrompt("")
-	if !strings.Contains(prompt, "implementation plan") {
-		t.Error("planner prompt should mention implementation plan")
+func TestBuildContextGathererPrompt_ContainsCacheAndFormat(t *testing.T) {
+	instanceID := "my-repo-BD-42"
+	cachePath := ralphContextCachePath(instanceID)
+	prompt := buildContextGathererPrompt("", instanceID)
+	if !strings.Contains(prompt, cachePath) {
+		t.Errorf("gatherer prompt missing cache file path %q", cachePath)
 	}
-	if !strings.Contains(prompt, "[Planner output]") {
-		t.Error("planner prompt should specify output format")
+	if !strings.Contains(prompt, "[Context Gatherer output]") {
+		t.Error("gatherer prompt missing output format spec")
+	}
+	if !strings.Contains(prompt, "cache_hit") {
+		t.Error("gatherer prompt missing cache_hit field")
+	}
+}
+
+func TestBuildContextGathererPrompt_EpicFilter(t *testing.T) {
+	prompt := buildContextGathererPrompt("BD-42", "repo-BD-42")
+	if !strings.Contains(prompt, "BD-42") {
+		t.Error("gatherer prompt missing epic filter")
 	}
 }
 
 func TestBuildReviewerPrompt_ContainsDiffAndSpecialist(t *testing.T) {
 	diff := "diff --git a/main.go"
 	specialist := "senior Go engineer"
-	plannerOutput := "task: BD-1 implement feature"
-	prompt := buildReviewerPrompt(plannerOutput, diff, specialist)
+	gathererOutput := "task: BD-1 implement feature"
+	prompt := buildReviewerPrompt(gathererOutput, diff, specialist)
 	if !strings.Contains(prompt, diff) {
 		t.Error("reviewer prompt missing diff")
 	}
@@ -82,14 +94,20 @@ func TestBuildReviewerPrompt_ContainsDiffAndSpecialist(t *testing.T) {
 }
 
 func TestBuildFixerPrompt_ContainsFeedback(t *testing.T) {
-	plannerOutput := "plan: step 1"
+	gathererOutput := "task: BD-1\npatterns:\nUse table-driven tests."
 	feedback := "verdict: CHANGES_REQUESTED\nissues:\n- missing tests"
-	prompt := buildFixerPrompt("", plannerOutput, feedback)
+	prompt := buildFixerPrompt("", gathererOutput, feedback)
 	if !strings.Contains(prompt, "A reviewer found these issues") {
 		t.Error("fixer prompt missing reviewer context header")
 	}
 	if !strings.Contains(prompt, feedback) {
 		t.Error("fixer prompt missing reviewer feedback")
+	}
+}
+
+func TestPhaseContextGatherer_StringValue(t *testing.T) {
+	if phaseContextGatherer.String() != "context-gatherer" {
+		t.Errorf("got %q, want context-gatherer", phaseContextGatherer.String())
 	}
 }
 

@@ -75,6 +75,9 @@ func main() {
 	m.instanceID = derivedID
 	m.hubInstanceID = derivedID
 
+	// Clean up any stale context cache from a prior run for this instance
+	_ = os.Remove(ralphContextCachePath(derivedID))
+
 	// Ensure reporter.Close() runs on signal exit
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGTERM, syscall.SIGINT)
@@ -275,8 +278,8 @@ func detectSpecialist(diff string) string {
 
 // buildDevPrompt produces the prompt for the developer phase.
 // The developer finds the next ready task, implements it, runs tests, commits if passing.
-// plannerOutput is injected when a preceding planner phase has provided an implementation plan.
-func buildDevPrompt(epic, plannerOutput string) string {
+// gathererOutput is injected when a preceding context-gatherer phase has provided codebase patterns.
+func buildDevPrompt(epic, gathererOutput string) string {
 	// Build the bd ready command with optional epic filter
 	bdReadyCmd := "bd ready --json"
 	if epic != "" {
@@ -345,16 +348,17 @@ ready_after: <integer count from bd ready after you finish>
 task: <T>
 tests: <PASSED or FAILED>
 notes: <1-2 sentence summary>`, epicNote, bdReadyCmd, bdReadyCmd)
-	if plannerOutput != "" {
-		base += "\n\nHere is your implementation plan:\n" + plannerOutput
+	if gathererOutput != "" {
+		base += "\n\nHere is the codebase context gathered for this task:\n" + gathererOutput
 	}
 	return base
 }
 
-// buildPlannerPrompt produces the prompt for the planner phase.
-// The planner finds the next ready task, analyzes it, and outputs a structured plan.
-// It does NOT write any code — analysis only.
-func buildPlannerPrompt(epic string) string {
+// buildContextGathererPrompt produces the prompt for the context-gatherer phase.
+// The gatherer finds the next ready task, checks the instance-scoped cache for known patterns,
+// does fresh docs+code research on a cache miss, writes findings to the cache file, and
+// outputs a pattern summary for the dev phase.
+func buildContextGathererPrompt(epic, instanceID string) string {
 	bdReadyCmd := "bd ready --json"
 	if epic != "" {
 		bdReadyCmd = fmt.Sprintf("bd ready --parent %s --json", epic)
@@ -365,7 +369,9 @@ func buildPlannerPrompt(epic string) string {
 		epicNote = fmt.Sprintf("\n\n**IMPORTANT**: You are scoped to epic %s. Only work on tasks within this epic.", epic)
 	}
 
-	return fmt.Sprintf(`You are the Planner phase of an AI pipeline. Your job is ANALYSIS ONLY — do not write any code or make any commits.%s
+	cachePath := ralphContextCachePath(instanceID)
+
+	return fmt.Sprintf(`You are the Context Gatherer phase of an AI pipeline. Your job is RESEARCH ONLY — do not write any implementation code or make any commits.%s
 
 Your task:
 
@@ -375,27 +381,44 @@ Your task:
 2. Run: bd show <T> --json
    Read the full task description, acceptance criteria, and any notes.
 
-3. Produce a structured implementation plan covering:
-   - Approach: how you would implement this
-   - Files to touch: which files need creating or modifying
-   - Edge cases: what could go wrong
-   - Test strategy: what tests to write or run
+3. Read the cache file at %s if it exists.
+   Assess: does the cache cover the domains this task touches well enough to guide implementation?
 
-Output your response in this exact format:
+4. If cache is sufficient (full or partial hit):
+   - Use the cached patterns for covered domains.
+   - For any uncovered domains, proceed to step 5 for those areas only.
+   - Skip to step 6 if fully covered.
 
-[Planner output]
+5. If cache is insufficient (partial or full miss):
+   - Read relevant docs: CLAUDE.md, AGENTS.md, README.md, and anything under docs/
+   - Find and read 2-3 existing files most similar to what this task requires (same package, same pattern area, etc.)
+   - When docs and code contradict each other, prefer whichever is more recent.
+   - Write updated findings to %s using this format:
+
+     # Ralph Context Cache
+     Instance: %s
+
+     ## <Domain name>
+     Last updated: <today's date>
+     <pattern summary>
+
+   Append new sections or update stale ones. Do not remove existing sections.
+
+6. Output your response in this exact format:
+
+[Context Gatherer output]
 task: <T>
-description: <one-line summary of the task>
-plan:
-<your full structured plan here>`, epicNote, bdReadyCmd)
+cache_hit: full|partial|none
+patterns:
+<concise summary of the relevant patterns and conventions the dev should follow>`, epicNote, bdReadyCmd, cachePath, cachePath, instanceID)
 }
 
 // buildReviewerPrompt produces the prompt for the reviewer phase.
 // The reviewer checks the diff as a specialist and returns APPROVED or CHANGES_REQUESTED.
-func buildReviewerPrompt(plannerOutput, diff, specialist string) string {
+func buildReviewerPrompt(gathererOutput, diff, specialist string) string {
 	return fmt.Sprintf(`You are a code reviewer acting as: %s
 
-You are reviewing work done by an AI coding agent. Here is the context for the task that was implemented:
+You are reviewing work done by an AI coding agent. Here is the codebase context gathered for this task:
 
 %s
 
@@ -416,7 +439,7 @@ verdict: APPROVED|CHANGES_REQUESTED
 specialist: %s
 issues:
 - <issue 1, or "none" if approved>
-notes: <1-2 sentence summary>`, specialist, plannerOutput, diff, specialist)
+notes: <1-2 sentence summary>`, specialist, gathererOutput, diff, specialist)
 }
 
 // ralphContextCachePath returns the absolute path to the instance-scoped context cache file.
@@ -430,8 +453,8 @@ func ralphContextCachePath(instanceID string) string {
 }
 
 // buildFixerPrompt produces the prompt for the fixer phase.
-// The fixer receives the original plan and reviewer feedback, then fixes the issues and re-commits.
-func buildFixerPrompt(epic, plannerOutput, reviewerFeedback string) string {
+// The fixer receives the original gatherer context and reviewer feedback, then fixes the issues and re-commits.
+func buildFixerPrompt(epic, gathererOutput, reviewerFeedback string) string {
 	bdReadyCmd := "bd ready --json"
 	if epic != "" {
 		bdReadyCmd = fmt.Sprintf("bd ready --parent %s --json", epic)
@@ -441,7 +464,7 @@ func buildFixerPrompt(epic, plannerOutput, reviewerFeedback string) string {
 
 A reviewer has found issues with your previous implementation. Your job is to fix them and re-commit.
 
-Here is the original implementation plan:
+Here is the codebase context gathered for this task:
 
 %s
 
@@ -462,5 +485,5 @@ ready_before: <run %s to get count>
 ready_after: <run %s again after work>
 task: <task ID from the plan above>
 tests: <PASSED or FAILED>
-notes: <1-2 sentence summary>`, plannerOutput, reviewerFeedback, bdReadyCmd, bdReadyCmd)
+notes: <1-2 sentence summary>`, gathererOutput, reviewerFeedback, bdReadyCmd, bdReadyCmd)
 }
