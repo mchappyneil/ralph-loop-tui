@@ -24,6 +24,7 @@ type iterationRecord struct {
 	duration     time.Duration
 	passed       bool
 	taskID       string
+	taskTitle    string
 	notes        string
 	reviewCycles int    // how many reviewer/fixer cycles were needed
 	finalVerdict string // "APPROVED" or "GAVE_UP"
@@ -141,6 +142,7 @@ type RalphStatus struct {
 	ReadyBefore int
 	ReadyAfter  int
 	Task        string
+	TaskTitle   string
 	Passed      bool
 	Notes       string
 }
@@ -150,6 +152,9 @@ type RalphStatus struct {
 func parseRalphStatus(output string) *RalphStatus {
 	// First, extract all text content from the JSON output
 	textContent := extractTextFromStreamJSON(output)
+	if textContent == "" {
+		textContent = output
+	}
 
 	// Look for the status block in the extracted text
 	statusBlockRegex := regexp.MustCompile(`(?s)\[Ralph status\]\s*\n(.*?)(?:\n\n|$)`)
@@ -188,6 +193,8 @@ func parseRalphStatus(output string) *RalphStatus {
 			}
 		case "task":
 			status.Task = value
+		case "task_title":
+			status.TaskTitle = value
 		case "tests":
 			status.Passed = strings.ToUpper(value) == "PASSED"
 		case "notes":
@@ -262,4 +269,48 @@ func parseReviewerStatus(output string) *ReviewerStatus {
 	}
 
 	return status
+}
+
+// ContextGathererOutput holds parsed output from the context-gatherer phase
+type ContextGathererOutput struct {
+	Task      string
+	TaskTitle string
+	CacheHit  string
+}
+
+// parseContextGathererOutput extracts the [Context Gatherer output] block from context-gatherer phase output
+func parseContextGathererOutput(output string) *ContextGathererOutput {
+	textContent := extractTextFromStreamJSON(output)
+	if textContent == "" {
+		textContent = output
+	}
+
+	blockRegex := regexp.MustCompile(`(?s)\[Context Gatherer output\]\s*\n(.*?)(?:\n\n|$)`)
+	match := blockRegex.FindStringSubmatch(textContent)
+	if match == nil {
+		return nil
+	}
+
+	result := &ContextGathererOutput{}
+	for _, line := range strings.Split(match[1], "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || line == "patterns:" {
+			break
+		}
+		parts := strings.SplitN(line, ":", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		key := strings.TrimSpace(parts[0])
+		value := strings.TrimSpace(parts[1])
+		switch key {
+		case "task":
+			result.Task = value
+		case "task_title":
+			result.TaskTitle = value
+		case "cache_hit":
+			result.CacheHit = value
+		}
+	}
+	return result
 }
