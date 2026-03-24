@@ -13,6 +13,9 @@ const maxConsecutiveErrors = 3
 
 // Init starts first iteration and a periodic tick
 func (m model) Init() tea.Cmd {
+	if m.demoMode {
+		return tick()
+	}
 	m.sendEvent(EventSessionStarted, map[string]any{
 		"max_iterations":    m.maxIter,
 		"sleep_seconds":     int(m.sleep.Seconds()),
@@ -95,6 +98,21 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if m.followOutput {
 					m.outputVP.GotoBottom()
 				}
+			}
+
+		// Demo mode: navigate scenarios
+		case "n":
+			if m.demoMode {
+				idx := (m.demoScenarioIdx + 1) % len(demoScenarios)
+				applyDemoScenario(&m, idx)
+			}
+		case "p":
+			if m.demoMode {
+				idx := m.demoScenarioIdx - 1
+				if idx < 0 {
+					idx = len(demoScenarios) - 1
+				}
+				applyDemoScenario(&m, idx)
 			}
 		}
 

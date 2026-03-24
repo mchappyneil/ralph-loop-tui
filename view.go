@@ -217,5 +217,11 @@ func (m model) renderHelpBar() string {
 		keys = append(keys, helpKeyStyle.Render("r")+helpDescStyle.Render(fmt.Sprintf(":view(%s)", rawStatus)))
 	}
 
+	if m.demoMode {
+		scenario := demoScenarios[m.demoScenarioIdx]
+		keys = append(keys, helpKeyStyle.Render("n/p")+helpDescStyle.Render(
+			fmt.Sprintf(":scenario [%d/%d %s]", m.demoScenarioIdx+1, len(demoScenarios), scenario.name)))
+	}
+
 	return helpBarStyle.Width(m.width).Render(strings.Join(keys, "  "))
 }
