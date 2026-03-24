@@ -7,6 +7,7 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/fireynis/ralph-loop-go/screens"
 )
 
 const maxConsecutiveErrors = 3
@@ -211,11 +212,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Parse single line and display if it's meaningful
 		parsed := ParseStreamLine(line)
 		if parsed != nil {
-			// Add to parsed output content (but don't update viewport yet)
+			styled := screens.FormatParsedEventStyled(parsed.Type, parsed.Summary, parsed.Highlight, parsed.HighlightKind)
+
+			// Add blank line before tool_call (visual grouping)
+			if parsed.Type == "tool_call" && m.outputContent != "" {
+				m.outputContent += "\n"
+			}
+
 			if m.outputContent == "" {
-				m.outputContent = parsed.Summary
+				m.outputContent = styled
 			} else {
-				m.outputContent = m.outputContent + "\n" + parsed.Summary
+				m.outputContent = m.outputContent + "\n" + styled
 			}
 
 			// Show key events on homebase (tool calls, results, text)
@@ -308,6 +315,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			})
 			m.statusText = fmt.Sprintf("Iteration %d • dev", m.iteration)
 			m.appendHomebase("Phase: dev")
+			m.appendOutput(screens.FormatPhaseHeader("dev", m.iteration))
 			return m, runClaudeCmd(m.ctx, m.claudePath, buildDevPrompt(m.epic, m.gathererOutput))
 
 		case phaseDev:
@@ -328,6 +336,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			specialist := detectSpecialist(diff)
 			m.statusText = fmt.Sprintf("Iteration %d • reviewer (%d/%d)", m.iteration, m.reviewCycle, m.maxReviewCycles)
 			m.appendHomebase(fmt.Sprintf("Phase: reviewer (cycle %d/%d)", m.reviewCycle, m.maxReviewCycles))
+			m.appendOutput(screens.FormatPhaseHeader("reviewer", m.iteration))
 			return m, runClaudeCmd(m.ctx, m.claudePath, buildReviewerPrompt(m.gathererOutput, diff, specialist))
 
 		case phaseReviewer:
@@ -399,6 +408,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			})
 			m.statusText = fmt.Sprintf("Iteration %d • fixer", m.iteration)
 			m.appendHomebase(fmt.Sprintf("Phase: fixer (reviewer cycle %d/%d requested changes)", m.reviewCycle-1, m.maxReviewCycles))
+			m.appendOutput(screens.FormatPhaseHeader("fixer", m.iteration))
 			return m, runClaudeCmd(m.ctx, m.claudePath, buildFixerPrompt(m.epic, m.gathererOutput, m.reviewerFeedback))
 
 		case phaseFixer:
@@ -411,6 +421,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			specialist := detectSpecialist(diff)
 			m.statusText = fmt.Sprintf("Iteration %d • reviewer (%d/%d)", m.iteration, m.reviewCycle, m.maxReviewCycles)
 			m.appendHomebase(fmt.Sprintf("Phase: reviewer (cycle %d/%d)", m.reviewCycle, m.maxReviewCycles))
+			m.appendOutput(screens.FormatPhaseHeader("reviewer", m.iteration))
 			return m, runClaudeCmd(m.ctx, m.claudePath, buildReviewerPrompt(m.gathererOutput, diff, specialist))
 
 		default:
