@@ -127,6 +127,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		m.analytics.initialReady = msg.readyCount
 		m.analytics.currentReady = msg.readyCount
+		m.analytics.totalTasks = msg.readyCount + msg.blockedCount + msg.inProgressCount
+		m.analytics.blockedCount = msg.blockedCount
 
 		epicLabel := "all work"
 		if m.epic != "" {

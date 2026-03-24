@@ -16,6 +16,8 @@ type analyticsData struct {
 	initialReady     int
 	currentReady     int
 	tasksClosed      int
+	totalTasks       int // set from preflight: ready + blocked + in-progress
+	blockedCount     int // static snapshot from preflight
 }
 
 // iterationRecord stores data for a single iteration

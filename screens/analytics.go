@@ -68,10 +68,13 @@ type AnalyticsData struct {
 	CurrentIterStart   time.Time // For "Current" timing
 
 	// Task tracking
-	InitialReady int
-	CurrentReady int
-	TasksClosed  int
-	LastTask     string
+	InitialReady     int
+	CurrentReady     int
+	TasksClosed      int
+	LastTask         string
+	TotalTasks       int
+	BlockedCount     int
+	CurrentTaskTitle string
 
 	// Hub reporting
 	HubURL        string
