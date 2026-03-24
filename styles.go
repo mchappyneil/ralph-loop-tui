@@ -78,9 +78,11 @@ var (
 var (
 	completionBannerStyle = lipgloss.NewStyle().
 				Bold(true).
-				Foreground(lipgloss.Color("255")).
+				Foreground(lipgloss.Color("0")).
 				Background(successColor).
 				Padding(0, 2).
-				Align(lipgloss.Center)
+				Align(lipgloss.Center).
+				Border(lipgloss.RoundedBorder()).
+				BorderForeground(successColor)
 )
 

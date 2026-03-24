@@ -27,6 +27,7 @@ var (
 	hubURL          = flag.String("hub-url", "", "URL of ralph-hub server (env: RALPH_HUB_URL)")
 	hubAPIKey       = flag.String("hub-api-key", "", "API key for ralph-hub (env: RALPH_HUB_API_KEY)")
 	instanceID      = flag.String("instance-id", "", "Instance identifier (default: derived from repo/epic, env: RALPH_INSTANCE_ID)")
+	demoFlag        = flag.Bool("demo", false, "Start in demo mode with synthetic data for UI testing")
 )
 
 // Global program reference for sending messages from goroutines
@@ -34,6 +35,16 @@ var programRef *tea.Program
 
 func main() {
 	flag.Parse()
+
+	if *demoFlag {
+		p := tea.NewProgram(demoModel(), tea.WithAltScreen())
+		programRef = p
+		if _, err := p.Run(); err != nil {
+			fmt.Println("Error:", err)
+			os.Exit(1)
+		}
+		return
+	}
 
 	// Env var fallbacks for hub flags
 	hubURLVal := *hubURL
@@ -346,6 +357,7 @@ For operator observability, in every iteration you MUST include at the end of yo
 ready_before: <integer count from bd ready before you picked T>
 ready_after: <integer count from bd ready after you finish>
 task: <T>
+task_title: <title of T from bd show>
 tests: <PASSED or FAILED>
 notes: <1-2 sentence summary>`, epicNote, bdReadyCmd, bdReadyCmd)
 	if gathererOutput != "" {
@@ -408,6 +420,7 @@ Your task:
 
 [Context Gatherer output]
 task: <T>
+task_title: <title from bd show --json>
 cache_hit: full|partial|none
 patterns:
 <concise summary of the relevant patterns and conventions the dev should follow>`, epicNote, bdReadyCmd, cachePath, cachePath, instanceID)
@@ -484,6 +497,7 @@ For operator observability, include at the end of your response:
 ready_before: <run %s to get count>
 ready_after: <run %s again after work>
 task: <task ID from the plan above>
+task_title: <title of the task being fixed>
 tests: <PASSED or FAILED>
 notes: <1-2 sentence summary>`, gathererOutput, reviewerFeedback, bdReadyCmd, bdReadyCmd)
 }

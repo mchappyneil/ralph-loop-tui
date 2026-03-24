@@ -122,6 +122,17 @@ func (m model) renderStatusBar() string {
 		)
 	}
 
+	if m.currentTaskTitle != "" {
+		taskDisplay := m.currentTaskTitle
+		if len(taskDisplay) > 40 {
+			taskDisplay = taskDisplay[:40]
+		}
+		content += fmt.Sprintf(" | %s %s",
+			statusLabelStyle.Render("Task:"),
+			statusValueStyle.Render(fmt.Sprintf("%q", taskDisplay)),
+		)
+	}
+
 	return statusBarStyle.Width(m.width).Render(content)
 }
 
@@ -158,6 +169,7 @@ func (m model) buildAnalyticsData() screens.AnalyticsData {
 			Duration:     r.duration,
 			Passed:       r.passed,
 			TaskID:       r.taskID,
+			TaskTitle:    r.taskTitle,
 			Notes:        r.notes,
 			ReviewCycles: r.reviewCycles,
 			FinalVerdict: r.finalVerdict,
@@ -215,6 +227,12 @@ func (m model) renderHelpBar() string {
 			rawStatus = "raw"
 		}
 		keys = append(keys, helpKeyStyle.Render("r")+helpDescStyle.Render(fmt.Sprintf(":view(%s)", rawStatus)))
+	}
+
+	if m.demoMode {
+		scenario := demoScenarios[m.demoScenarioIdx]
+		keys = append(keys, helpKeyStyle.Render("n/p")+helpDescStyle.Render(
+			fmt.Sprintf(":scenario [%d/%d %s]", m.demoScenarioIdx+1, len(demoScenarios), scenario.name)))
 	}
 
 	return helpBarStyle.Width(m.width).Render(strings.Join(keys, "  "))

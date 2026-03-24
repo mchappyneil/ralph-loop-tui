@@ -11,8 +11,8 @@ func TestToEventAnalytics(t *testing.T) {
 	a.currentReady = 3
 
 	// One pass (10s), one fail (20s)
-	a.addIteration(1, 10*time.Second, true, "BD-1", "done", "APPROVED", 0)
-	a.addIteration(2, 20*time.Second, false, "BD-2", "broke", "ERROR", 1)
+	a.addIteration(1, 10*time.Second, true, "BD-1", "", "done", "APPROVED", 0)
+	a.addIteration(2, 20*time.Second, false, "BD-2", "", "broke", "ERROR", 1)
 
 	ea := a.toEventAnalytics()
 
@@ -96,5 +96,19 @@ func TestParseReviewerStatus_MissingBlock(t *testing.T) {
 	}
 	if status.Verdict != "APPROVED" {
 		t.Errorf("missing block should default to APPROVED, got %q", status.Verdict)
+	}
+}
+
+func TestAddIteration_ContinueDoesNotIncrementTasksClosed(t *testing.T) {
+	a := newAnalyticsData()
+	a.addIteration(1, 10*time.Second, true, "BD-1", "", "done", "APPROVED", 1)
+	// CONTINUE passes passed=true (dev succeeded) but should NOT count as task closed
+	a.addIteration(2, 0, true, "", "", "overridden", "CONTINUE", 0)
+
+	if a.tasksClosed != 1 {
+		t.Errorf("tasksClosed = %d, want 1 (CONTINUE should not count)", a.tasksClosed)
+	}
+	if a.passedCount != 2 {
+		t.Errorf("passedCount = %d, want 2 (CONTINUE still counts as passed)", a.passedCount)
 	}
 }

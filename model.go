@@ -47,7 +47,7 @@ const (
 type iterationPhase int
 
 const (
-	phaseContextGatherer  iterationPhase = iota
+	phaseContextGatherer iterationPhase = iota
 	phaseDev
 	phaseReviewer
 	phaseFixer
@@ -137,11 +137,13 @@ type model struct {
 
 	// Phase pipeline state
 	currentPhase      iterationPhase
-	reviewCycle       int // current review cycle (1-based)
-	maxReviewCycles   int // from -max-review-cycles flag
-	consecutiveErrors int // consecutive Claude errors; reset on success
+	reviewCycle       int    // current review cycle (1-based)
+	maxReviewCycles   int    // from -max-review-cycles flag
+	consecutiveErrors int    // consecutive Claude errors; reset on success
 	gathererOutput    string // stored between context-gatherer → dev/reviewer/fixer
-	reviewerFeedback string // stored between reviewer → fixer
+	reviewerFeedback  string // stored between reviewer → fixer
+	currentTaskID     string
+	currentTaskTitle  string
 
 	// Reporting
 	reporter      Reporter
@@ -158,6 +160,10 @@ type model struct {
 
 	// Program reference for sending messages from goroutines
 	program *tea.Program
+
+	// Demo mode
+	demoMode        bool
+	demoScenarioIdx int
 }
 
 func initialModel(reporter Reporter) model {
