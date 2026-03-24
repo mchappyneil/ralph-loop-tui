@@ -252,7 +252,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			// Record failed iteration
 			elapsed := m.endTime.Sub(m.startTime)
-			m.analytics.addIteration(m.iteration, elapsed, false, "", msg.err.Error(), "ERROR", 0)
+			m.analytics.addIteration(m.iteration, elapsed, false, "", "", msg.err.Error(), "ERROR", 0)
 			m.sendEvent(EventIterationCompleted, map[string]any{
 				"iteration":     m.iteration,
 				"duration_ms":   elapsed.Milliseconds(),
@@ -295,6 +295,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch m.currentPhase {
 		case phaseContextGatherer:
 			m.gathererOutput = ExtractFullText(msg.output)
+			if gathered := parseContextGathererOutput(msg.output); gathered != nil {
+				m.currentTaskID = gathered.Task
+				m.currentTaskTitle = gathered.TaskTitle
+			}
 			m.currentPhase = phaseDev
 			m.sendEvent(EventPhaseChanged, map[string]any{
 				"from": "context-gatherer",
@@ -347,6 +351,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 				if ralphStatus != nil {
 					taskID = ralphStatus.Task
+					if ralphStatus.TaskTitle != "" {
+						m.currentTaskTitle = ralphStatus.TaskTitle
+					}
 					if m.analytics.initialReady == 0 && ralphStatus.ReadyBefore > 0 {
 						m.analytics.initialReady = ralphStatus.ReadyBefore
 					}
@@ -354,7 +361,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 
 				elapsed := m.endTime.Sub(m.startTime)
-				m.analytics.addIteration(m.iteration, elapsed, passed, taskID, notes, finalVerdict, m.reviewCycle)
+				m.analytics.addIteration(m.iteration, elapsed, passed, taskID, m.currentTaskTitle, notes, finalVerdict, m.reviewCycle)
 				m.sendEvent(EventIterationCompleted, map[string]any{
 					"iteration":     m.iteration,
 					"duration_ms":   elapsed.Milliseconds(),
@@ -432,7 +439,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if ralphStatus != nil {
 				taskID = ralphStatus.Task
 			}
-			m.analytics.addIteration(m.iteration, elapsed, true, taskID, "COMPLETE overridden — ready work remains", "CONTINUE", 0)
+			m.analytics.addIteration(m.iteration, elapsed, true, taskID, m.currentTaskTitle, "COMPLETE overridden — ready work remains", "CONTINUE", 0)
 			m.sendEvent(EventIterationCompleted, map[string]any{
 				"iteration":     m.iteration,
 				"duration_ms":   elapsed.Milliseconds(),
@@ -460,7 +467,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if ralphStatus != nil {
 			taskID = ralphStatus.Task
 		}
-		m.analytics.addIteration(m.iteration, elapsed, true, taskID, "No ready work remaining (verified)", "COMPLETE", 0)
+		m.analytics.addIteration(m.iteration, elapsed, true, taskID, m.currentTaskTitle, "No ready work remaining (verified)", "COMPLETE", 0)
 		m.sendEvent(EventIterationCompleted, map[string]any{
 			"iteration":     m.iteration,
 			"duration_ms":   elapsed.Milliseconds(),

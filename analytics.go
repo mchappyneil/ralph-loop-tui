@@ -38,12 +38,13 @@ func newAnalyticsData() *analyticsData {
 }
 
 // addIteration records a completed iteration
-func (a *analyticsData) addIteration(iteration int, duration time.Duration, passed bool, taskID, notes, finalVerdict string, reviewCycles int) {
+func (a *analyticsData) addIteration(iteration int, duration time.Duration, passed bool, taskID, taskTitle, notes, finalVerdict string, reviewCycles int) {
 	record := iterationRecord{
 		iteration:    iteration,
 		duration:     duration,
 		passed:       passed,
 		taskID:       taskID,
+		taskTitle:    taskTitle,
 		notes:        notes,
 		reviewCycles: reviewCycles,
 		finalVerdict: finalVerdict,

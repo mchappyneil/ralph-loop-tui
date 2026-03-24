@@ -108,6 +108,8 @@ func applyFreshStart(m *model) {
 	m.endTime = time.Time{}
 	m.loopDone = false
 	m.epic = "DEMO-1"
+	m.currentTaskID = ""
+	m.currentTaskTitle = ""
 	m.analytics.initialReady = 8
 	m.analytics.currentReady = 8
 	m.analytics.iterationHistory = []iterationRecord{}
@@ -144,8 +146,10 @@ func applyEarlySession(m *model) {
 	m.epic = "DEMO-1"
 	m.analytics.initialReady = 8
 	m.analytics.currentReady = 7
+	m.currentTaskID = "beads-bbb2"
+	m.currentTaskTitle = "Setup DB migrations"
 	addDemoHistory(m, []iterationRecord{
-		{iteration: 1, duration: 4*time.Minute + 23*time.Second, passed: true, taskID: "DEMO-101", notes: "Implemented user auth endpoint", reviewCycles: 1, finalVerdict: "APPROVED"},
+		{iteration: 1, duration: 4*time.Minute + 23*time.Second, passed: true, taskID: "DEMO-101", taskTitle: "Add user auth endpoint", notes: "Implemented user auth endpoint", reviewCycles: 1, finalVerdict: "APPROVED"},
 	})
 	m.homebaseContent = `[Iteration 1] DEMO-101: Implemented user auth endpoint
   Duration: 4m23s | Review cycles: 1 | Verdict: APPROVED
@@ -176,14 +180,16 @@ func applyMidSession(m *model) {
 	m.epic = "DEMO-1"
 	m.analytics.initialReady = 8
 	m.analytics.currentReady = 3
+	m.currentTaskID = "beads-ggg7"
+	m.currentTaskTitle = "Add request logging"
 	addDemoHistory(m, []iterationRecord{
-		{iteration: 1, duration: 4*time.Minute + 23*time.Second, passed: true, taskID: "DEMO-101", notes: "Implemented user auth endpoint", reviewCycles: 1, finalVerdict: "APPROVED"},
-		{iteration: 2, duration: 3*time.Minute + 45*time.Second, passed: true, taskID: "DEMO-102", notes: "Added session management", reviewCycles: 1, finalVerdict: "APPROVED"},
-		{iteration: 3, duration: 5*time.Minute + 12*time.Second, passed: true, taskID: "DEMO-103", notes: "Database migration for users table", reviewCycles: 2, finalVerdict: "APPROVED"},
-		{iteration: 4, duration: 2*time.Minute + 58*time.Second, passed: false, taskID: "DEMO-104", notes: "Tests failed: timeout in integration test", reviewCycles: 3, finalVerdict: "GAVE_UP"},
-		{iteration: 5, duration: 4*time.Minute + 38*time.Second, passed: true, taskID: "DEMO-105", notes: "Password reset flow", reviewCycles: 1, finalVerdict: "APPROVED"},
+		{iteration: 1, duration: 4*time.Minute + 23*time.Second, passed: true, taskID: "DEMO-101", taskTitle: "Add user auth endpoint", notes: "Implemented user auth endpoint", reviewCycles: 1, finalVerdict: "APPROVED"},
+		{iteration: 2, duration: 3*time.Minute + 45*time.Second, passed: true, taskID: "DEMO-102", taskTitle: "Add session management", notes: "Added session management", reviewCycles: 1, finalVerdict: "APPROVED"},
+		{iteration: 3, duration: 5*time.Minute + 12*time.Second, passed: true, taskID: "DEMO-103", taskTitle: "DB migration for users", notes: "Database migration for users table", reviewCycles: 2, finalVerdict: "APPROVED"},
+		{iteration: 4, duration: 2*time.Minute + 58*time.Second, passed: false, taskID: "DEMO-104", taskTitle: "Fix integration timeout", notes: "Tests failed: timeout in integration test", reviewCycles: 3, finalVerdict: "GAVE_UP"},
+		{iteration: 5, duration: 4*time.Minute + 38*time.Second, passed: true, taskID: "DEMO-105", taskTitle: "Password reset flow", notes: "Password reset flow", reviewCycles: 1, finalVerdict: "APPROVED"},
 		{iteration: 6, duration: 0, passed: true, taskID: "", notes: "COMPLETE overridden", finalVerdict: "CONTINUE", reviewCycles: 0},
-		{iteration: 7, duration: 6*time.Minute + 15*time.Second, passed: true, taskID: "DEMO-104", notes: "Fixed timeout issue, increased test deadline", reviewCycles: 2, finalVerdict: "APPROVED"},
+		{iteration: 7, duration: 6*time.Minute + 15*time.Second, passed: true, taskID: "DEMO-104", taskTitle: "Fix integration timeout", notes: "Fixed timeout issue, increased test deadline", reviewCycles: 2, finalVerdict: "APPROVED"},
 	})
 	m.homebaseContent = `[Iteration 7] DEMO-106: Email verification endpoint
   Duration: 3m29s | Review cycles: 1 | Verdict: APPROVED
@@ -214,13 +220,15 @@ func applyPostFailure(m *model) {
 	m.epic = "DEMO-1"
 	m.analytics.initialReady = 8
 	m.analytics.currentReady = 7
+	m.currentTaskID = "beads-fff6"
+	m.currentTaskTitle = "Fix race condition"
 	addDemoHistory(m, []iterationRecord{
-		{iteration: 1, duration: 4*time.Minute + 23*time.Second, passed: true, taskID: "DEMO-101", notes: "Implemented user auth endpoint", reviewCycles: 1, finalVerdict: "APPROVED"},
-		{iteration: 2, duration: 3*time.Minute + 45*time.Second, passed: true, taskID: "DEMO-102", notes: "Added session management", reviewCycles: 1, finalVerdict: "APPROVED"},
-		{iteration: 3, duration: 5*time.Minute + 12*time.Second, passed: true, taskID: "DEMO-103", notes: "Database migration for users table", reviewCycles: 2, finalVerdict: "APPROVED"},
-		{iteration: 4, duration: 2*time.Minute + 58*time.Second, passed: false, taskID: "DEMO-104", notes: "Tests failed: timeout in integration test", reviewCycles: 3, finalVerdict: "GAVE_UP"},
-		{iteration: 5, duration: 4*time.Minute + 38*time.Second, passed: true, taskID: "DEMO-105", notes: "Password reset flow", reviewCycles: 1, finalVerdict: "APPROVED"},
-		{iteration: 6, duration: 7*time.Minute + 45*time.Second, passed: false, taskID: "DEMO-106", notes: "Reviewer found race condition, fixer unable to resolve after 3 cycles", reviewCycles: 3, finalVerdict: "GAVE_UP"},
+		{iteration: 1, duration: 4*time.Minute + 23*time.Second, passed: true, taskID: "DEMO-101", taskTitle: "Add user auth endpoint", notes: "Implemented user auth endpoint", reviewCycles: 1, finalVerdict: "APPROVED"},
+		{iteration: 2, duration: 3*time.Minute + 45*time.Second, passed: true, taskID: "DEMO-102", taskTitle: "Add session management", notes: "Added session management", reviewCycles: 1, finalVerdict: "APPROVED"},
+		{iteration: 3, duration: 5*time.Minute + 12*time.Second, passed: true, taskID: "DEMO-103", taskTitle: "DB migration for users", notes: "Database migration for users table", reviewCycles: 2, finalVerdict: "APPROVED"},
+		{iteration: 4, duration: 2*time.Minute + 58*time.Second, passed: false, taskID: "DEMO-104", taskTitle: "Fix integration timeout", notes: "Tests failed: timeout in integration test", reviewCycles: 3, finalVerdict: "GAVE_UP"},
+		{iteration: 5, duration: 4*time.Minute + 38*time.Second, passed: true, taskID: "DEMO-105", taskTitle: "Password reset flow", notes: "Password reset flow", reviewCycles: 1, finalVerdict: "APPROVED"},
+		{iteration: 6, duration: 7*time.Minute + 45*time.Second, passed: false, taskID: "DEMO-106", taskTitle: "Fix race condition", notes: "Reviewer found race condition, fixer unable to resolve after 3 cycles", reviewCycles: 3, finalVerdict: "GAVE_UP"},
 	})
 	m.homebaseContent = `[Iteration 5] DEMO-105: Password reset flow
   Duration: 4m38s | Review cycles: 1 | Verdict: APPROVED
@@ -263,22 +271,24 @@ func applyNearCompletion(m *model) {
 	m.epic = "DEMO-1"
 	m.analytics.initialReady = 8
 	m.analytics.currentReady = 1
+	m.currentTaskID = "beads-015"
+	m.currentTaskTitle = "Final integration test"
 	addDemoHistory(m, []iterationRecord{
-		{iteration: 1, duration: 4*time.Minute + 23*time.Second, passed: true, taskID: "DEMO-101", notes: "Implemented user auth endpoint", reviewCycles: 1, finalVerdict: "APPROVED"},
-		{iteration: 2, duration: 3*time.Minute + 45*time.Second, passed: true, taskID: "DEMO-102", notes: "Added session management", reviewCycles: 1, finalVerdict: "APPROVED"},
-		{iteration: 3, duration: 5*time.Minute + 12*time.Second, passed: true, taskID: "DEMO-103", notes: "Database migration for users table", reviewCycles: 2, finalVerdict: "APPROVED"},
-		{iteration: 4, duration: 2*time.Minute + 58*time.Second, passed: false, taskID: "DEMO-104", notes: "Tests failed", reviewCycles: 3, finalVerdict: "GAVE_UP"},
-		{iteration: 5, duration: 4*time.Minute + 38*time.Second, passed: true, taskID: "DEMO-105", notes: "Password reset flow", reviewCycles: 1, finalVerdict: "APPROVED"},
-		{iteration: 6, duration: 6*time.Minute + 15*time.Second, passed: true, taskID: "DEMO-104", notes: "Fixed previous failure", reviewCycles: 2, finalVerdict: "APPROVED"},
-		{iteration: 7, duration: 3*time.Minute + 29*time.Second, passed: true, taskID: "DEMO-106", notes: "Email verification", reviewCycles: 1, finalVerdict: "APPROVED"},
-		{iteration: 8, duration: 4*time.Minute + 52*time.Second, passed: true, taskID: "DEMO-107", notes: "RBAC implementation", reviewCycles: 1, finalVerdict: "APPROVED"},
-		{iteration: 9, duration: 3*time.Minute + 18*time.Second, passed: true, taskID: "DEMO-108", notes: "Admin dashboard", reviewCycles: 1, finalVerdict: "APPROVED"},
-		{iteration: 10, duration: 5*time.Minute + 44*time.Second, passed: true, taskID: "DEMO-109", notes: "Audit logging", reviewCycles: 2, finalVerdict: "APPROVED"},
-		{iteration: 11, duration: 2*time.Minute + 38*time.Second, passed: true, taskID: "DEMO-110", notes: "Rate limiting", reviewCycles: 1, finalVerdict: "APPROVED"},
-		{iteration: 12, duration: 4*time.Minute + 7*time.Second, passed: true, taskID: "DEMO-111", notes: "API documentation", reviewCycles: 1, finalVerdict: "APPROVED"},
-		{iteration: 13, duration: 3*time.Minute + 51*time.Second, passed: false, taskID: "DEMO-112", notes: "Flaky integration test", reviewCycles: 3, finalVerdict: "GAVE_UP"},
-		{iteration: 14, duration: 5*time.Minute + 29*time.Second, passed: true, taskID: "DEMO-112", notes: "Fixed test flakiness with proper mocking", reviewCycles: 2, finalVerdict: "APPROVED"},
-		{iteration: 15, duration: 3*time.Minute + 22*time.Second, passed: true, taskID: "DEMO-113", notes: "Performance optimization for auth queries", reviewCycles: 1, finalVerdict: "APPROVED"},
+		{iteration: 1, duration: 4*time.Minute + 23*time.Second, passed: true, taskID: "DEMO-101", taskTitle: "Add user auth endpoint", notes: "Implemented user auth endpoint", reviewCycles: 1, finalVerdict: "APPROVED"},
+		{iteration: 2, duration: 3*time.Minute + 45*time.Second, passed: true, taskID: "DEMO-102", taskTitle: "Add session management", notes: "Added session management", reviewCycles: 1, finalVerdict: "APPROVED"},
+		{iteration: 3, duration: 5*time.Minute + 12*time.Second, passed: true, taskID: "DEMO-103", taskTitle: "DB migration for users", notes: "Database migration for users table", reviewCycles: 2, finalVerdict: "APPROVED"},
+		{iteration: 4, duration: 2*time.Minute + 58*time.Second, passed: false, taskID: "DEMO-104", taskTitle: "Fix integration timeout", notes: "Tests failed", reviewCycles: 3, finalVerdict: "GAVE_UP"},
+		{iteration: 5, duration: 4*time.Minute + 38*time.Second, passed: true, taskID: "DEMO-105", taskTitle: "Password reset flow", notes: "Password reset flow", reviewCycles: 1, finalVerdict: "APPROVED"},
+		{iteration: 6, duration: 6*time.Minute + 15*time.Second, passed: true, taskID: "DEMO-104", taskTitle: "Fix integration timeout", notes: "Fixed previous failure", reviewCycles: 2, finalVerdict: "APPROVED"},
+		{iteration: 7, duration: 3*time.Minute + 29*time.Second, passed: true, taskID: "DEMO-106", taskTitle: "Email verification", notes: "Email verification", reviewCycles: 1, finalVerdict: "APPROVED"},
+		{iteration: 8, duration: 4*time.Minute + 52*time.Second, passed: true, taskID: "DEMO-107", taskTitle: "RBAC implementation", notes: "RBAC implementation", reviewCycles: 1, finalVerdict: "APPROVED"},
+		{iteration: 9, duration: 3*time.Minute + 18*time.Second, passed: true, taskID: "DEMO-108", taskTitle: "Admin dashboard", notes: "Admin dashboard", reviewCycles: 1, finalVerdict: "APPROVED"},
+		{iteration: 10, duration: 5*time.Minute + 44*time.Second, passed: true, taskID: "DEMO-109", taskTitle: "Audit logging", notes: "Audit logging", reviewCycles: 2, finalVerdict: "APPROVED"},
+		{iteration: 11, duration: 2*time.Minute + 38*time.Second, passed: true, taskID: "DEMO-110", taskTitle: "Rate limiting", notes: "Rate limiting", reviewCycles: 1, finalVerdict: "APPROVED"},
+		{iteration: 12, duration: 4*time.Minute + 7*time.Second, passed: true, taskID: "DEMO-111", taskTitle: "API documentation", notes: "API documentation", reviewCycles: 1, finalVerdict: "APPROVED"},
+		{iteration: 13, duration: 3*time.Minute + 51*time.Second, passed: false, taskID: "DEMO-112", taskTitle: "Fix flaky test suite", notes: "Flaky integration test", reviewCycles: 3, finalVerdict: "GAVE_UP"},
+		{iteration: 14, duration: 5*time.Minute + 29*time.Second, passed: true, taskID: "DEMO-112", taskTitle: "Fix flaky test suite", notes: "Fixed test flakiness with proper mocking", reviewCycles: 2, finalVerdict: "APPROVED"},
+		{iteration: 15, duration: 3*time.Minute + 22*time.Second, passed: true, taskID: "DEMO-113", taskTitle: "Optimize auth queries", notes: "Performance optimization for auth queries", reviewCycles: 1, finalVerdict: "APPROVED"},
 	})
 	m.homebaseContent = `[Iteration 14] DEMO-112: Fixed test flakiness
   Duration: 5m29s | Review cycles: 2 | Verdict: APPROVED
@@ -312,19 +322,21 @@ func applyCompletedAll(m *model) {
 	m.epic = "DEMO-1"
 	m.analytics.initialReady = 8
 	m.analytics.currentReady = 0
+	m.currentTaskID = ""
+	m.currentTaskTitle = ""
 	addDemoHistory(m, []iterationRecord{
-		{iteration: 1, duration: 4*time.Minute + 23*time.Second, passed: true, taskID: "DEMO-101", notes: "User auth endpoint", reviewCycles: 1, finalVerdict: "APPROVED"},
-		{iteration: 2, duration: 3*time.Minute + 45*time.Second, passed: true, taskID: "DEMO-102", notes: "Session management", reviewCycles: 1, finalVerdict: "APPROVED"},
-		{iteration: 3, duration: 5*time.Minute + 12*time.Second, passed: true, taskID: "DEMO-103", notes: "Database migration", reviewCycles: 2, finalVerdict: "APPROVED"},
-		{iteration: 4, duration: 2*time.Minute + 58*time.Second, passed: false, taskID: "DEMO-104", notes: "Test timeout", reviewCycles: 3, finalVerdict: "GAVE_UP"},
-		{iteration: 5, duration: 4*time.Minute + 38*time.Second, passed: true, taskID: "DEMO-105", notes: "Password reset", reviewCycles: 1, finalVerdict: "APPROVED"},
-		{iteration: 6, duration: 6*time.Minute + 15*time.Second, passed: true, taskID: "DEMO-104", notes: "Fixed timeout", reviewCycles: 2, finalVerdict: "APPROVED"},
-		{iteration: 7, duration: 3*time.Minute + 29*time.Second, passed: true, taskID: "DEMO-106", notes: "Email verification", reviewCycles: 1, finalVerdict: "APPROVED"},
-		{iteration: 8, duration: 4*time.Minute + 52*time.Second, passed: true, taskID: "DEMO-107", notes: "RBAC", reviewCycles: 1, finalVerdict: "APPROVED"},
-		{iteration: 9, duration: 3*time.Minute + 18*time.Second, passed: true, taskID: "DEMO-108", notes: "Admin dashboard", reviewCycles: 1, finalVerdict: "APPROVED"},
-		{iteration: 10, duration: 5*time.Minute + 44*time.Second, passed: true, taskID: "DEMO-109", notes: "Audit logging", reviewCycles: 2, finalVerdict: "APPROVED"},
-		{iteration: 11, duration: 2*time.Minute + 38*time.Second, passed: true, taskID: "DEMO-110", notes: "Rate limiting", reviewCycles: 1, finalVerdict: "APPROVED"},
-		{iteration: 12, duration: 3*time.Minute + 44*time.Second, passed: true, taskID: "DEMO-111", notes: "Final cleanup and docs", reviewCycles: 1, finalVerdict: "APPROVED"},
+		{iteration: 1, duration: 4*time.Minute + 23*time.Second, passed: true, taskID: "DEMO-101", taskTitle: "Add user auth endpoint", notes: "User auth endpoint", reviewCycles: 1, finalVerdict: "APPROVED"},
+		{iteration: 2, duration: 3*time.Minute + 45*time.Second, passed: true, taskID: "DEMO-102", taskTitle: "Add session management", notes: "Session management", reviewCycles: 1, finalVerdict: "APPROVED"},
+		{iteration: 3, duration: 5*time.Minute + 12*time.Second, passed: true, taskID: "DEMO-103", taskTitle: "DB migration for users", notes: "Database migration", reviewCycles: 2, finalVerdict: "APPROVED"},
+		{iteration: 4, duration: 2*time.Minute + 58*time.Second, passed: false, taskID: "DEMO-104", taskTitle: "Fix integration timeout", notes: "Test timeout", reviewCycles: 3, finalVerdict: "GAVE_UP"},
+		{iteration: 5, duration: 4*time.Minute + 38*time.Second, passed: true, taskID: "DEMO-105", taskTitle: "Password reset flow", notes: "Password reset", reviewCycles: 1, finalVerdict: "APPROVED"},
+		{iteration: 6, duration: 6*time.Minute + 15*time.Second, passed: true, taskID: "DEMO-104", taskTitle: "Fix integration timeout", notes: "Fixed timeout", reviewCycles: 2, finalVerdict: "APPROVED"},
+		{iteration: 7, duration: 3*time.Minute + 29*time.Second, passed: true, taskID: "DEMO-106", taskTitle: "Email verification", notes: "Email verification", reviewCycles: 1, finalVerdict: "APPROVED"},
+		{iteration: 8, duration: 4*time.Minute + 52*time.Second, passed: true, taskID: "DEMO-107", taskTitle: "RBAC implementation", notes: "RBAC", reviewCycles: 1, finalVerdict: "APPROVED"},
+		{iteration: 9, duration: 3*time.Minute + 18*time.Second, passed: true, taskID: "DEMO-108", taskTitle: "Admin dashboard", notes: "Admin dashboard", reviewCycles: 1, finalVerdict: "APPROVED"},
+		{iteration: 10, duration: 5*time.Minute + 44*time.Second, passed: true, taskID: "DEMO-109", taskTitle: "Audit logging", notes: "Audit logging", reviewCycles: 2, finalVerdict: "APPROVED"},
+		{iteration: 11, duration: 2*time.Minute + 38*time.Second, passed: true, taskID: "DEMO-110", taskTitle: "Rate limiting", notes: "Rate limiting", reviewCycles: 1, finalVerdict: "APPROVED"},
+		{iteration: 12, duration: 3*time.Minute + 44*time.Second, passed: true, taskID: "DEMO-111", taskTitle: "Final cleanup and docs", notes: "Final cleanup and docs", reviewCycles: 1, finalVerdict: "APPROVED"},
 	})
 	m.homebaseContent = `[Iteration 11] DEMO-110: Rate limiting
   Duration: 2m38s | Review cycles: 1 | Verdict: APPROVED
@@ -374,6 +386,8 @@ func applyCompletedMax(m *model) {
 	m.epic = "DEMO-1"
 	m.analytics.initialReady = 8
 	m.analytics.currentReady = 3
+	m.currentTaskID = ""
+	m.currentTaskTitle = ""
 
 	// Build realistic history: 32 passed, 18 failed/gave up
 	history := make([]iterationRecord, 50)

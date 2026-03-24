@@ -87,6 +87,7 @@ type IterationRecord struct {
 	Duration     time.Duration
 	Passed       bool
 	TaskID       string
+	TaskTitle    string
 	Notes        string
 	ReviewCycles int
 	FinalVerdict string
@@ -251,7 +252,7 @@ func renderHistoryPanel(data AnalyticsData, width int) string {
 	}
 
 	// Table header
-	b.WriteString(tableHeaderStyle.Render(fmt.Sprintf("%-4s %-10s %-10s %-4s %-12s", "#", "Duration", "Verdict", "Cyc", "Task")))
+	b.WriteString(tableHeaderStyle.Render(fmt.Sprintf("%-4s %-10s %-10s %-4s %-24s", "#", "Duration", "Verdict", "Cyc", "Task")))
 	b.WriteString("\n")
 
 	// Show last 10 iterations
@@ -279,22 +280,25 @@ func renderHistoryPanel(data AnalyticsData, width int) string {
 			verdictStr = failedStyle.Render(fmt.Sprintf("%-10s", verdict))
 		}
 
-		taskID := record.TaskID
-		if len(taskID) > 12 {
-			taskID = taskID[:12]
+		taskDisplay := record.TaskTitle
+		if taskDisplay == "" {
+			taskDisplay = record.TaskID
 		}
-		if taskID == "" {
-			taskID = "-"
+		if len(taskDisplay) > 24 {
+			taskDisplay = taskDisplay[:24]
+		}
+		if taskDisplay == "" {
+			taskDisplay = "-"
 		}
 
 		cycles := fmt.Sprintf("%-4d", record.ReviewCycles)
 
-		row := fmt.Sprintf("%-4d %-10s %s %s %-12s",
+		row := fmt.Sprintf("%-4d %-10s %s %s %-24s",
 			record.Iteration,
 			record.Duration.Truncate(time.Second).String(),
 			verdictStr,
 			cycles,
-			taskID,
+			taskDisplay,
 		)
 		b.WriteString(tableRowStyle.Render(row))
 		b.WriteString("\n")
