@@ -432,14 +432,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if ralphStatus != nil {
 				taskID = ralphStatus.Task
 			}
-			m.analytics.addIteration(m.iteration, elapsed, true, taskID, "COMPLETE overridden — ready work remains", "OVERRIDE", 0)
+			m.analytics.addIteration(m.iteration, elapsed, true, taskID, "COMPLETE overridden — ready work remains", "CONTINUE", 0)
 			m.sendEvent(EventIterationCompleted, map[string]any{
 				"iteration":     m.iteration,
 				"duration_ms":   elapsed.Milliseconds(),
 				"task_id":       taskID,
 				"passed":        true,
 				"notes":         "COMPLETE overridden — ready work remains",
-				"final_verdict": "OVERRIDE",
+				"final_verdict": "CONTINUE",
 			})
 
 			return m, tea.Tick(m.sleep, func(time.Time) tea.Msg {

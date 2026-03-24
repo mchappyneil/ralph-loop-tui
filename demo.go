@@ -87,7 +87,9 @@ func addDemoHistory(m *model, records []iterationRecord) {
 	for _, r := range records {
 		if r.passed {
 			m.analytics.passedCount++
-			m.analytics.tasksClosed++
+			if r.finalVerdict != "CONTINUE" && r.finalVerdict != "OVERRIDE" {
+				m.analytics.tasksClosed++
+			}
 		} else {
 			m.analytics.failedCount++
 		}
@@ -160,7 +162,7 @@ patterns:
 - Follow repo style: package-level logger, explicit error returns`
 }
 
-// applyMidSession: iteration=8/50, mix of APPROVED(5)/FAILED(1)/GAVE_UP(1)/OVERRIDE(1), running dev
+// applyMidSession: iteration=8/50, mix of APPROVED(5)/FAILED(1)/GAVE_UP(1)/CONTINUE(1), running dev
 func applyMidSession(m *model) {
 	m.iteration = 8
 	m.maxIter = 50
@@ -180,8 +182,8 @@ func applyMidSession(m *model) {
 		{iteration: 3, duration: 5*time.Minute + 12*time.Second, passed: true, taskID: "DEMO-103", notes: "Database migration for users table", reviewCycles: 2, finalVerdict: "APPROVED"},
 		{iteration: 4, duration: 2*time.Minute + 58*time.Second, passed: false, taskID: "DEMO-104", notes: "Tests failed: timeout in integration test", reviewCycles: 3, finalVerdict: "GAVE_UP"},
 		{iteration: 5, duration: 4*time.Minute + 38*time.Second, passed: true, taskID: "DEMO-105", notes: "Password reset flow", reviewCycles: 1, finalVerdict: "APPROVED"},
-		{iteration: 6, duration: 6*time.Minute + 15*time.Second, passed: true, taskID: "DEMO-104", notes: "Fixed timeout issue, increased test deadline", reviewCycles: 2, finalVerdict: "APPROVED"},
-		{iteration: 7, duration: 3*time.Minute + 29*time.Second, passed: true, taskID: "DEMO-106", notes: "Email verification endpoint", reviewCycles: 1, finalVerdict: "APPROVED"},
+		{iteration: 6, duration: 0, passed: true, taskID: "", notes: "COMPLETE overridden", finalVerdict: "CONTINUE", reviewCycles: 0},
+		{iteration: 7, duration: 6*time.Minute + 15*time.Second, passed: true, taskID: "DEMO-104", notes: "Fixed timeout issue, increased test deadline", reviewCycles: 2, finalVerdict: "APPROVED"},
 	})
 	m.homebaseContent = `[Iteration 7] DEMO-106: Email verification endpoint
   Duration: 3m29s | Review cycles: 1 | Verdict: APPROVED

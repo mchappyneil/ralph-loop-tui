@@ -31,6 +31,10 @@ var (
 			Foreground(lipgloss.Color("82")).
 			Bold(true)
 
+	continueStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("214")).
+			Bold(true)
+
 	failedStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("196")).
 			Bold(true)
@@ -269,6 +273,8 @@ func renderHistoryPanel(data AnalyticsData, width int) string {
 		switch verdict {
 		case "APPROVED", "PASSED":
 			verdictStr = passedStyle.Render(fmt.Sprintf("%-10s", verdict))
+		case "CONTINUE":
+			verdictStr = continueStyle.Render(fmt.Sprintf("%-10s", verdict))
 		default:
 			verdictStr = failedStyle.Render(fmt.Sprintf("%-10s", verdict))
 		}

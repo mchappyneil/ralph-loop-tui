@@ -50,7 +50,9 @@ func (a *analyticsData) addIteration(iteration int, duration time.Duration, pass
 	a.iterationHistory = append(a.iterationHistory, record)
 	if passed {
 		a.passedCount++
-		a.tasksClosed++
+		if finalVerdict != "CONTINUE" && finalVerdict != "OVERRIDE" {
+			a.tasksClosed++
+		}
 	} else {
 		a.failedCount++
 	}
