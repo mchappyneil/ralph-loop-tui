@@ -112,6 +112,8 @@ func applyFreshStart(m *model) {
 	m.currentTaskTitle = ""
 	m.analytics.initialReady = 8
 	m.analytics.currentReady = 8
+	m.analytics.totalTasks = 11
+	m.analytics.blockedCount = 3
 	m.analytics.iterationHistory = []iterationRecord{}
 	m.homebaseContent = `Ralph loop starting...
 
@@ -146,6 +148,8 @@ func applyEarlySession(m *model) {
 	m.epic = "DEMO-1"
 	m.analytics.initialReady = 8
 	m.analytics.currentReady = 7
+	m.analytics.totalTasks = 11
+	m.analytics.blockedCount = 3
 	m.currentTaskID = "beads-bbb2"
 	m.currentTaskTitle = "Setup DB migrations"
 	addDemoHistory(m, []iterationRecord{
@@ -180,6 +184,8 @@ func applyMidSession(m *model) {
 	m.epic = "DEMO-1"
 	m.analytics.initialReady = 8
 	m.analytics.currentReady = 3
+	m.analytics.totalTasks = 12
+	m.analytics.blockedCount = 1
 	m.currentTaskID = "beads-ggg7"
 	m.currentTaskTitle = "Add request logging"
 	addDemoHistory(m, []iterationRecord{
@@ -220,6 +226,8 @@ func applyPostFailure(m *model) {
 	m.epic = "DEMO-1"
 	m.analytics.initialReady = 8
 	m.analytics.currentReady = 7
+	m.analytics.totalTasks = 11
+	m.analytics.blockedCount = 3
 	m.currentTaskID = "beads-fff6"
 	m.currentTaskTitle = "Fix race condition"
 	addDemoHistory(m, []iterationRecord{
@@ -271,6 +279,8 @@ func applyNearCompletion(m *model) {
 	m.epic = "DEMO-1"
 	m.analytics.initialReady = 8
 	m.analytics.currentReady = 1
+	m.analytics.totalTasks = 12
+	m.analytics.blockedCount = 0
 	m.currentTaskID = "beads-015"
 	m.currentTaskTitle = "Final integration test"
 	addDemoHistory(m, []iterationRecord{
@@ -322,6 +332,8 @@ func applyCompletedAll(m *model) {
 	m.epic = "DEMO-1"
 	m.analytics.initialReady = 8
 	m.analytics.currentReady = 0
+	m.analytics.totalTasks = 12
+	m.analytics.blockedCount = 0
 	m.currentTaskID = ""
 	m.currentTaskTitle = ""
 	addDemoHistory(m, []iterationRecord{
@@ -386,6 +398,8 @@ func applyCompletedMax(m *model) {
 	m.epic = "DEMO-1"
 	m.analytics.initialReady = 8
 	m.analytics.currentReady = 3
+	m.analytics.totalTasks = 12
+	m.analytics.blockedCount = 3
 	m.currentTaskID = ""
 	m.currentTaskTitle = ""
 

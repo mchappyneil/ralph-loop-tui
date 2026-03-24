@@ -199,34 +199,68 @@ func renderTimingPanel(data AnalyticsData) string {
 	return b.String()
 }
 
+func renderProgressBar(completed, total, width int) string {
+	if total == 0 {
+		return ""
+	}
+	barWidth := width - 8 // room for "  XX%  "
+	if barWidth < 10 {
+		barWidth = 10
+	}
+	filled := barWidth * completed / total
+	if filled > barWidth {
+		filled = barWidth
+	}
+	pct := float64(completed) / float64(total) * 100
+
+	bar := strings.Repeat("█", filled) + strings.Repeat("░", barWidth-filled)
+	return fmt.Sprintf("  %s  %.0f%%", bar, pct)
+}
+
 func renderTaskPanel(data AnalyticsData) string {
 	var b strings.Builder
 	b.WriteString(titleStyle.Render("Task Tracking") + "\n\n")
 
-	// Ready queue size
-	b.WriteString(labelStyle.Render("Initial Ready:"))
-	b.WriteString(valueStyle.Render(fmt.Sprintf("%d", data.InitialReady)))
+	// Completed / Total
+	completed := data.TasksClosed
+	total := data.TotalTasks
+	if total == 0 {
+		total = data.InitialReady // fallback if totalTasks not set
+	}
+	pct := 0.0
+	if total > 0 {
+		pct = float64(completed) / float64(total) * 100
+	}
+	b.WriteString(labelStyle.Render("Completed:"))
+	b.WriteString(passedStyle.Render(fmt.Sprintf("%d / %d  (%.0f%%)", completed, total, pct)))
 	b.WriteString("\n")
 
-	b.WriteString(labelStyle.Render("Current Ready:"))
+	// Progress bar
+	b.WriteString(renderProgressBar(completed, total, 30))
+	b.WriteString("\n\n")
+
+	// Ready / Blocked
+	b.WriteString(labelStyle.Render("Ready:"))
 	b.WriteString(valueStyle.Render(fmt.Sprintf("%d", data.CurrentReady)))
 	b.WriteString("\n")
 
-	// Tasks closed
-	b.WriteString(labelStyle.Render("Tasks Closed:"))
-	b.WriteString(passedStyle.Render(fmt.Sprintf("%d", data.TasksClosed)))
-	b.WriteString("\n")
-
-	// Last task
-	lastTask := data.LastTask
-	if lastTask == "" {
-		lastTask = "-"
-	}
-	b.WriteString(labelStyle.Render("Last Task:"))
-	b.WriteString(valueStyle.Render(lastTask))
+	b.WriteString(labelStyle.Render("Blocked:"))
+	b.WriteString(valueStyle.Render(fmt.Sprintf("%d", data.BlockedCount)))
 	b.WriteString("\n\n")
 
-	// Hub reporting
+	// Current task
+	taskDisplay := data.CurrentTaskTitle
+	if taskDisplay == "" {
+		taskDisplay = data.LastTask
+	}
+	if taskDisplay == "" {
+		taskDisplay = "-"
+	}
+	b.WriteString(labelStyle.Render("Current Task:"))
+	b.WriteString(valueStyle.Render(taskDisplay))
+	b.WriteString("\n\n")
+
+	// Hub section (unchanged)
 	b.WriteString(titleStyle.Render("Hub") + "\n\n")
 	if data.HubURL != "" {
 		b.WriteString(labelStyle.Render("Status:"))
@@ -275,7 +309,7 @@ func renderHistoryPanel(data AnalyticsData, width int) string {
 		}
 		var verdictStr string
 		switch verdict {
-		case "APPROVED", "PASSED":
+		case "APPROVED", "PASSED", "COMPLETE":
 			verdictStr = passedStyle.Render(fmt.Sprintf("%-10s", verdict))
 		case "CONTINUE":
 			verdictStr = continueStyle.Render(fmt.Sprintf("%-10s", verdict))
