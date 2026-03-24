@@ -139,7 +139,8 @@ func (m model) renderStatusBar() string {
 func (m model) renderScreen() string {
 	switch m.activeScreen {
 	case screenHomebase:
-		return screens.RenderHomebase(m.homebaseVP)
+		data := m.buildHomebaseData()
+		return screens.RenderHomebase(data, m.homebaseVP)
 	case screenOutput:
 		content := m.outputContent
 		if m.showRawOutput {
@@ -198,6 +199,49 @@ func (m model) buildAnalyticsData() screens.AnalyticsData {
 		HubURL:             m.hubURL,
 		HubInstanceID:      m.hubInstanceID,
 		IterationHistory:   history,
+	}
+}
+
+func (m model) buildHomebaseData() screens.HomebaseData {
+	elapsed := time.Duration(0)
+	if !m.startTime.IsZero() {
+		end := m.endTime
+		if end.IsZero() {
+			end = time.Now()
+		}
+		elapsed = end.Sub(m.startTime)
+	}
+
+	history := make([]screens.IterationRecord, len(m.analytics.iterationHistory))
+	for i, r := range m.analytics.iterationHistory {
+		history[i] = screens.IterationRecord{
+			Iteration:    r.iteration,
+			Duration:     r.duration,
+			Passed:       r.passed,
+			TaskID:       r.taskID,
+			TaskTitle:    r.taskTitle,
+			Notes:        r.notes,
+			ReviewCycles: r.reviewCycles,
+			FinalVerdict: r.finalVerdict,
+		}
+	}
+
+	return screens.HomebaseData{
+		CurrentTaskID:    m.currentTaskID,
+		CurrentTaskTitle: m.currentTaskTitle,
+		CurrentPhase:     m.currentPhase.String(),
+		Iteration:        m.iteration,
+		MaxIterations:    m.maxIter,
+		IterationElapsed: elapsed,
+		Status:           string(m.status),
+		LoopDone:         m.loopDone,
+		TasksCompleted:   m.analytics.tasksClosed,
+		TotalTasks:       m.analytics.totalTasks,
+		PassedCount:      m.analytics.passedCount,
+		FailedCount:      m.analytics.failedCount,
+		ActivityLines:    m.activityLines,
+		GraphOutput:      m.graphOutput,
+		Iterations:       history,
 	}
 }
 
