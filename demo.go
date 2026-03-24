@@ -115,6 +115,8 @@ func applyFreshStart(m *model) {
 	m.analytics.totalTasks = 11
 	m.analytics.blockedCount = 3
 	m.analytics.iterationHistory = []iterationRecord{}
+	m.activityLines = nil
+	m.graphOutput = "  DEMO-1 [epic]\n    ├─ DEMO-101 [ready]\n    ├─ DEMO-102 [ready]\n    ├─ DEMO-103 [blocked by DEMO-101]\n    └─ ..."
 	m.homebaseContent = `Ralph loop starting...
 
 Pre-flight checks:
@@ -155,6 +157,11 @@ func applyEarlySession(m *model) {
 	addDemoHistory(m, []iterationRecord{
 		{iteration: 1, duration: 4*time.Minute + 23*time.Second, passed: true, taskID: "DEMO-101", taskTitle: "Add user auth endpoint", notes: "Implemented user auth endpoint", reviewCycles: 1, finalVerdict: "APPROVED"},
 	})
+	m.activityLines = []string{
+		"  tool  🔧 Read(src/auth/handler.go)",
+		"  text  💬 Analyzing authentication patterns...",
+	}
+	m.graphOutput = "  DEMO-1 [epic]\n    ├─ DEMO-101 [done]\n    ├─ DEMO-102 [ready]\n    ├─ DEMO-103 [blocked by DEMO-101]\n    └─ ..."
 	m.homebaseContent = `[Iteration 1] DEMO-101: Implemented user auth endpoint
   Duration: 4m23s | Review cycles: 1 | Verdict: APPROVED
 
@@ -197,6 +204,13 @@ func applyMidSession(m *model) {
 		{iteration: 6, duration: 0, passed: true, taskID: "", notes: "COMPLETE overridden", finalVerdict: "CONTINUE", reviewCycles: 0},
 		{iteration: 7, duration: 6*time.Minute + 15*time.Second, passed: true, taskID: "DEMO-104", taskTitle: "Fix integration timeout", notes: "Fixed timeout issue, increased test deadline", reviewCycles: 2, finalVerdict: "APPROVED"},
 	})
+	m.activityLines = []string{
+		"  tool  🔧 Write(src/rbac/middleware.go)",
+		"  result  📥 File written successfully",
+		"  tool  🔧 Bash(go test ./src/rbac/...)",
+		"  PASS  📥 ok  github.com/demo/app/src/rbac 1.2s",
+	}
+	m.graphOutput = "  DEMO-1 [epic]\n    ├─ DEMO-101 [done]\n    ├─ DEMO-102 [done]\n    ├─ DEMO-103 [done]\n    ├─ DEMO-107 [in-progress]\n    └─ DEMO-108 [blocked by DEMO-107]"
 	m.homebaseContent = `[Iteration 7] DEMO-106: Email verification endpoint
   Duration: 3m29s | Review cycles: 1 | Verdict: APPROVED
 
@@ -238,6 +252,11 @@ func applyPostFailure(m *model) {
 		{iteration: 5, duration: 4*time.Minute + 38*time.Second, passed: true, taskID: "DEMO-105", taskTitle: "Password reset flow", notes: "Password reset flow", reviewCycles: 1, finalVerdict: "APPROVED"},
 		{iteration: 6, duration: 7*time.Minute + 45*time.Second, passed: false, taskID: "DEMO-106", taskTitle: "Fix race condition", notes: "Reviewer found race condition, fixer unable to resolve after 3 cycles", reviewCycles: 3, finalVerdict: "GAVE_UP"},
 	})
+	m.activityLines = []string{
+		"  FAIL  📥 FAIL github.com/demo/app/src/session 0.8s",
+		"  text  💬 Race condition detected in cleanup goroutine",
+	}
+	m.graphOutput = "  DEMO-1 [epic]\n    ├─ DEMO-101..105 [done]\n    ├─ DEMO-106 [failed]\n    └─ DEMO-107..108 [blocked]"
 	m.homebaseContent = `[Iteration 5] DEMO-105: Password reset flow
   Duration: 4m38s | Review cycles: 1 | Verdict: APPROVED
 
@@ -300,6 +319,12 @@ func applyNearCompletion(m *model) {
 		{iteration: 14, duration: 5*time.Minute + 29*time.Second, passed: true, taskID: "DEMO-112", taskTitle: "Fix flaky test suite", notes: "Fixed test flakiness with proper mocking", reviewCycles: 2, finalVerdict: "APPROVED"},
 		{iteration: 15, duration: 3*time.Minute + 22*time.Second, passed: true, taskID: "DEMO-113", taskTitle: "Optimize auth queries", notes: "Performance optimization for auth queries", reviewCycles: 1, finalVerdict: "APPROVED"},
 	})
+	m.activityLines = []string{
+		"  COMMIT  💬 feat: optimize auth queries with index",
+		"  CLOSE  💬 Running bd close beads-113",
+		"  PASS  📥 ok  github.com/demo/app/... 3.4s",
+	}
+	m.graphOutput = "  DEMO-1 [epic]\n    ├─ DEMO-101..113 [done]\n    └─ DEMO-114 [ready]"
 	m.homebaseContent = `[Iteration 14] DEMO-112: Fixed test flakiness
   Duration: 5m29s | Review cycles: 2 | Verdict: APPROVED
 
@@ -350,6 +375,11 @@ func applyCompletedAll(m *model) {
 		{iteration: 11, duration: 2*time.Minute + 38*time.Second, passed: true, taskID: "DEMO-110", taskTitle: "Rate limiting", notes: "Rate limiting", reviewCycles: 1, finalVerdict: "APPROVED"},
 		{iteration: 12, duration: 3*time.Minute + 44*time.Second, passed: true, taskID: "DEMO-111", taskTitle: "Final cleanup and docs", notes: "Final cleanup and docs", reviewCycles: 1, finalVerdict: "APPROVED"},
 	})
+	m.activityLines = []string{
+		"  COMMIT  💬 chore: final cleanup and docs",
+		"  CLOSE  💬 Running bd close beads-111",
+	}
+	m.graphOutput = "  DEMO-1 [epic]\n    └─ All tasks complete"
 	m.homebaseContent = `[Iteration 11] DEMO-110: Rate limiting
   Duration: 2m38s | Review cycles: 1 | Verdict: APPROVED
 
@@ -441,6 +471,12 @@ func applyCompletedMax(m *model) {
 		}
 	}
 	addDemoHistory(m, history)
+
+	m.activityLines = []string{
+		"  tool  🔧 Bash(go test ./...)",
+		"  PASS  📥 ok  github.com/demo/app/... 5.1s",
+	}
+	m.graphOutput = "  DEMO-1 [epic]\n    ├─ DEMO-101..136 [done]\n    ├─ DEMO-137 [ready]\n    ├─ DEMO-138 [ready]\n    └─ DEMO-139 [ready]"
 
 	m.homebaseContent = `[Iteration 49] DEMO-138: Task implementation
   Duration: 5m23s | Review cycles: 1 | Verdict: APPROVED

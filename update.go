@@ -140,6 +140,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			msg.readyCount, msg.blockedCount, msg.inProgressCount, msg.totalOpenCount))
 
 		if msg.graphOutput != "" {
+			m.graphOutput = msg.graphOutput
 			m.appendHomebase("")
 			m.appendHomebase("=== Dependency Graph ===")
 			m.appendHomebase(msg.graphOutput)
@@ -182,6 +183,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.reviewCycle = 0
 		m.gathererOutput = ""
 		m.reviewerFeedback = ""
+		m.activityLines = nil
+		m.currentTaskID = ""
+		m.currentTaskTitle = ""
 
 		// Add iteration header to output screens
 		m.appendOutput(fmt.Sprintf("--- Iteration %d Output ---", m.iteration))
@@ -225,14 +229,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.outputContent = m.outputContent + "\n" + styled
 			}
 
-			// Show key events on homebase (tool calls, results, text)
+			// Show key events in activity feed (replaces appendHomebase)
 			switch parsed.Type {
-			case "tool_call", "result":
-				m.appendHomebase("  " + parsed.Summary)
+			case "tool_call", "tool_result":
+				m.appendActivity(screens.FormatParsedEventStyled(parsed.Type, parsed.Summary, parsed.Highlight, parsed.HighlightKind))
 			case "text":
-				// Only show short text on homebase
 				if len(parsed.Summary) < 100 {
-					m.appendHomebase("  " + parsed.Summary)
+					m.appendActivity(screens.FormatParsedEventStyled(parsed.Type, parsed.Summary, parsed.Highlight, parsed.HighlightKind))
 				}
 			}
 		}
@@ -257,7 +260,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.endTime = time.Now()
 			m.lastError = msg.err.Error()
 			m.consecutiveErrors++
-			m.appendHomebase(fmt.Sprintf("Error: %v", msg.err))
+			m.appendActivity(fmt.Sprintf("Error: %v", msg.err))
 
 			// Record failed iteration
 			elapsed := m.endTime.Sub(m.startTime)
@@ -281,7 +284,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.consecutiveErrors < maxConsecutiveErrors {
 				m.status = statusError
 				m.statusText = fmt.Sprintf("Error running Claude (retry %d/%d)", m.consecutiveErrors, maxConsecutiveErrors)
-				m.appendHomebase(fmt.Sprintf("  Transient error, retrying (%d/%d)...", m.consecutiveErrors, maxConsecutiveErrors))
+				m.appendActivity(fmt.Sprintf("  Transient error, retrying (%d/%d)...", m.consecutiveErrors, maxConsecutiveErrors))
 				return m, tea.Tick(m.sleep, func(time.Time) tea.Msg {
 					return startIterationMsg{}
 				})
@@ -290,7 +293,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Retries exhausted — stop the loop
 			m.status = statusFinished
 			m.statusText = "Stopped (repeated Claude errors)"
-			m.appendHomebase(fmt.Sprintf("  %d consecutive errors — stopping loop", m.consecutiveErrors))
+			m.appendActivity(fmt.Sprintf("  %d consecutive errors — stopping loop", m.consecutiveErrors))
 			m.sendEvent(EventPhaseChanged, map[string]any{
 				"from": m.currentPhase.String(),
 				"to":   "error",
@@ -428,7 +431,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.status = statusFinished
 			m.statusText = "Unknown phase"
 			m.lastError = fmt.Sprintf("unexpected phase: %d", m.currentPhase)
-			m.appendHomebase(fmt.Sprintf("Error: unexpected phase %d", m.currentPhase))
+			m.appendActivity(fmt.Sprintf("Error: unexpected phase %d", m.currentPhase))
 			m.endSession("error")
 			return m, nil
 		}
