@@ -27,6 +27,7 @@ var (
 	hubURL          = flag.String("hub-url", "", "URL of ralph-hub server (env: RALPH_HUB_URL)")
 	hubAPIKey       = flag.String("hub-api-key", "", "API key for ralph-hub (env: RALPH_HUB_API_KEY)")
 	instanceID      = flag.String("instance-id", "", "Instance identifier (default: derived from repo/epic, env: RALPH_INSTANCE_ID)")
+	demoFlag        = flag.Bool("demo", false, "Start in demo mode with synthetic data for UI testing")
 )
 
 // Global program reference for sending messages from goroutines
@@ -34,6 +35,16 @@ var programRef *tea.Program
 
 func main() {
 	flag.Parse()
+
+	if *demoFlag {
+		p := tea.NewProgram(demoModel(), tea.WithAltScreen())
+		programRef = p
+		if _, err := p.Run(); err != nil {
+			fmt.Println("Error:", err)
+			os.Exit(1)
+		}
+		return
+	}
 
 	// Env var fallbacks for hub flags
 	hubURLVal := *hubURL
