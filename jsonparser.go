@@ -49,9 +49,29 @@ type ContentBlock struct {
 
 // ParsedEvent is a human-readable parsed event
 type ParsedEvent struct {
-	Type    string // "text", "tool_call", "tool_result", "result", "error"
-	Summary string // Short description
-	Details string // Full details (optional)
+	Type          string // "text", "tool_call", "tool_result", "result", "error"
+	Summary       string // Short description
+	Details       string // Full details (optional)
+	Highlight     bool
+	HighlightKind string // "pass", "fail", "commit", "close"
+}
+
+func applyHighlight(e *ParsedEvent) {
+	s := strings.ToLower(e.Summary)
+	switch {
+	case strings.Contains(s, "bd close"):
+		e.Highlight = true
+		e.HighlightKind = "close"
+	case strings.Contains(s, "passed") || strings.HasPrefix(s, "ok "):
+		e.Highlight = true
+		e.HighlightKind = "pass"
+	case strings.Contains(s, "fail") || strings.Contains(s, "error"):
+		e.Highlight = true
+		e.HighlightKind = "fail"
+	case strings.HasPrefix(s, "feat:") || strings.HasPrefix(s, "fix:") || strings.HasPrefix(s, "chore:") || strings.Contains(s, "commit"):
+		e.Highlight = true
+		e.HighlightKind = "commit"
+	}
 }
 
 // ParseClaudeOutput parses the entire stream-json output and returns parsed events
@@ -76,8 +96,8 @@ func ParseClaudeOutput(rawOutput string) []ParsedEvent {
 
 // ParseStreamLine parses a single JSON line from stream-json output
 func ParseStreamLine(line string) *ParsedEvent {
-	var event ClaudeStreamEvent
-	if err := json.Unmarshal([]byte(line), &event); err != nil {
+	var evt ClaudeStreamEvent
+	if err := json.Unmarshal([]byte(line), &evt); err != nil {
 		return &ParsedEvent{
 			Type:    "error",
 			Summary: "Failed to parse JSON",
@@ -85,16 +105,22 @@ func ParseStreamLine(line string) *ParsedEvent {
 		}
 	}
 
-	switch event.Type {
+	var event *ParsedEvent
+	switch evt.Type {
 	case "assistant":
-		return parseAssistantMessage(event.Message)
+		event = parseAssistantMessage(evt.Message)
 	case "user":
-		return parseUserMessage(event.Message)
+		event = parseUserMessage(evt.Message)
 	case "result":
-		return parseResultEvent(event)
+		event = parseResultEvent(evt)
 	default:
 		return nil
 	}
+
+	if event != nil {
+		applyHighlight(event)
+	}
+	return event
 }
 
 func parseAssistantMessage(raw json.RawMessage) *ParsedEvent {
