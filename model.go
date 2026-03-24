@@ -158,6 +158,10 @@ type model struct {
 
 	// Program reference for sending messages from goroutines
 	program *tea.Program
+
+	// Demo mode
+	demoMode        bool
+	demoScenarioIdx int
 }
 
 func initialModel(reporter Reporter) model {
