@@ -134,6 +134,7 @@ Dependency graph:
 
 Press Enter to start loop, q to quit.`
 	m.outputContent = "No iterations yet. Output will appear here when Ralph starts working."
+	m.rawOutputLog = ""
 }
 
 // applyEarlySession: iteration=2/50, 1 APPROVED in history, running context-gatherer
@@ -175,6 +176,17 @@ patterns:
 - Auth middleware via context.Context
 - Tests use httptest.NewRecorder
 - Follow repo style: package-level logger, explicit error returns`
+	m.rawOutputLog = `{"type":"assistant","message":{"content":[{"type":"text","text":"I'll start by reading the current task list and understanding the codebase structure."}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"toolu_01a","name":"Bash","input":{"command":"bd list --epic DEMO-1 --status ready"}}]}}
+{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_01a","content":"DEMO-102  Setup DB migrations  [ready]\nDEMO-103  Add password hashing  [blocked by DEMO-102]"}]}}
+{"type":"assistant","message":{"content":[{"type":"text","text":"I'll work on DEMO-102: Setup DB migrations. Let me examine the existing database code."}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"toolu_01b","name":"Read","input":{"file_path":"src/db/connection.go"}}]}}
+{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_01b","content":"package db\n\nimport \"database/sql\"\n\nfunc Connect(dsn string) (*sql.DB, error) {\n\treturn sql.Open(\"postgres\", dsn)\n}"}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"toolu_01c","name":"Glob","input":{"pattern":"src/db/**/*.go"}}]}}
+{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_01c","content":"src/db/connection.go\nsrc/db/queries.go"}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"toolu_01d","name":"Read","input":{"file_path":"src/auth/handler.go"}}]}}
+{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_01d","content":"package auth\n\nimport (\n\t\"net/http\"\n\t\"encoding/json\"\n)\n\nfunc HandleLogin(w http.ResponseWriter, r *http.Request) {\n\t// TODO: implement\n\tjson.NewEncoder(w).Encode(map[string]string{\"status\": \"ok\"})\n}"}]}}
+{"type":"assistant","message":{"content":[{"type":"text","text":"Now I understand the patterns. Let me create the migration framework."}]}}`
 }
 
 // applyMidSession: iteration=8/50, mix of APPROVED(5)/FAILED(1)/GAVE_UP(1)/CONTINUE(1), running dev
@@ -224,6 +236,18 @@ ready_after: 3
 task: DEMO-107
 tests: RUNNING
 notes: Implementing role-based access control, tests in progress`
+	m.rawOutputLog = `{"type":"assistant","message":{"content":[{"type":"text","text":"I'll implement the RBAC middleware for DEMO-107. Let me read the existing auth middleware first."}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"toolu_08a","name":"Read","input":{"file_path":"src/auth/middleware.go"}}]}}
+{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_08a","content":"package auth\n\nimport \"net/http\"\n\nfunc AuthMiddleware(next http.Handler) http.Handler {\n\treturn http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {\n\t\ttoken := r.Header.Get(\"Authorization\")\n\t\tif token == \"\" {\n\t\t\thttp.Error(w, \"unauthorized\", 401)\n\t\t\treturn\n\t\t}\n\t\tnext.ServeHTTP(w, r)\n\t})\n}"}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"toolu_08b","name":"Write","input":{"file_path":"src/rbac/middleware.go","content":"package rbac\n\nimport (\n\t\"context\"\n\t\"net/http\"\n)\n\ntype Role string\n\nconst (\n\tRoleAdmin  Role = \"admin\"\n\tRoleEditor Role = \"editor\"\n\tRoleViewer Role = \"viewer\"\n)\n\nfunc RequireRole(role Role) func(http.Handler) http.Handler {\n\treturn func(next http.Handler) http.Handler {\n\t\treturn http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {\n\t\t\tuserRole := r.Context().Value(\"role\").(Role)\n\t\t\tif !hasPermission(userRole, role) {\n\t\t\t\thttp.Error(w, \"forbidden\", 403)\n\t\t\t\treturn\n\t\t\t}\n\t\t\tnext.ServeHTTP(w, r)\n\t\t})\n\t}\n}"}}]}}
+{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_08b","content":"File written successfully"}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"toolu_08c","name":"Write","input":{"file_path":"src/rbac/middleware_test.go","content":"package rbac\n\nimport (\n\t\"net/http\"\n\t\"net/http/httptest\"\n\t\"testing\"\n)\n\nfunc TestRequireRole_Admin(t *testing.T) {\n\t// test admin access\n}"}}]}}
+{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_08c","content":"File written successfully"}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"toolu_08d","name":"Bash","input":{"command":"cd /repo && go test ./src/rbac/..."}}]}}
+{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_08d","content":"ok  \tgithub.com/demo/app/src/rbac\t1.234s\n\nPASS"}]}}
+{"type":"assistant","message":{"content":[{"type":"text","text":"All tests pass. Let me commit and close the task."}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"toolu_08e","name":"Bash","input":{"command":"cd /repo && git add -A && git commit -m \"feat: add RBAC middleware with role-based access control\""}}]}}
+{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_08e","content":"[main abc1234] feat: add RBAC middleware with role-based access control\n 3 files changed, 87 insertions(+)"}]}}`
 }
 
 // applyPostFailure: iteration=6/50, last was GAVE_UP with 3 review cycles
@@ -282,6 +306,20 @@ ready_after: 7
 task: DEMO-106
 tests: FAILED
 notes: GAVE_UP after 3 review cycles, needs manual fix`
+	m.rawOutputLog = `{"type":"assistant","message":{"content":[{"type":"text","text":"I need to fix the race condition in the session cleanup goroutine. Let me examine the code."}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"toolu_06a","name":"Read","input":{"file_path":"src/session/cleanup.go"}}]}}
+{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_06a","content":"package session\n\nvar activeSessions = map[string]*Session{}\n\nfunc cleanupExpired() {\n\tfor id, s := range activeSessions {\n\t\tif s.IsExpired() {\n\t\t\tdelete(activeSessions, id)\n\t\t}\n\t}\n}"}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"toolu_06b","name":"Write","input":{"file_path":"src/session/cleanup.go","content":"package session\n\nimport \"sync\"\n\nvar (\n\tmu             sync.RWMutex\n\tactiveSessions = map[string]*Session{}\n)\n\nfunc cleanupExpired() {\n\tmu.Lock()\n\tdefer mu.Unlock()\n\tfor id, s := range activeSessions {\n\t\tif s.IsExpired() {\n\t\t\tdelete(activeSessions, id)\n\t\t}\n\t}\n}"}}]}}
+{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_06b","content":"File written successfully"}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"toolu_06c","name":"Bash","input":{"command":"cd /repo && go test -race ./src/session/..."}}]}}
+{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_06c","content":"--- FAIL: TestConcurrentCleanup (0.82s)\n    cleanup_test.go:45: race detected during cleanup\nFAIL\tgithub.com/demo/app/src/session\t0.823s\nFAIL"}]}}
+{"type":"assistant","message":{"content":[{"type":"text","text":"The race still persists — there must be another access point. Let me check for other goroutines accessing the map."}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"toolu_06d","name":"Grep","input":{"pattern":"activeSessions","path":"src/session/"}}]}}
+{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_06d","content":"src/session/cleanup.go:5:activeSessions = map[string]*Session{}\nsrc/session/manager.go:18:activeSessions[s.ID] = s\nsrc/session/manager.go:23:return activeSessions[id]"}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"toolu_06e","name":"Bash","input":{"command":"cd /repo && go test -race ./src/session/..."}}]}}
+{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_06e","content":"--- FAIL: TestConcurrentCleanup (0.79s)\n    cleanup_test.go:45: race detected during map access from manager\nFAIL\tgithub.com/demo/app/src/session\t0.791s\nFAIL"}]}}
+{"type":"assistant","message":{"content":[{"type":"text","text":"I've tried wrapping all access points with the mutex but the race persists due to a complex interaction with the HTTP handler goroutines. This needs a fundamental redesign using channels. Giving up after 3 attempts."}]}}
+{"type":"result","subtype":"success","is_error":false,"duration_ms":465000,"num_turns":14}`
 }
 
 // applyNearCompletion: iteration=15/50, 11 tasks completed, 1 remaining
@@ -341,6 +379,19 @@ tests: PASSED
 notes: Added index on user_sessions.user_id, 80% query speedup
 
 One task remaining in epic DEMO-1.`
+	m.rawOutputLog = `{"type":"assistant","message":{"content":[{"type":"text","text":"Working on DEMO-113: Optimize auth queries. Let me profile the slow queries first."}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"toolu_15a","name":"Read","input":{"file_path":"src/auth/queries.go"}}]}}
+{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_15a","content":"package auth\n\nfunc GetUserSessions(db *sql.DB, userID string) ([]Session, error) {\n\trows, err := db.Query(\"SELECT * FROM user_sessions WHERE user_id = $1\", userID)\n\tif err != nil {\n\t\treturn nil, err\n\t}\n\tdefer rows.Close()\n\t// ...\n}"}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"toolu_15b","name":"Write","input":{"file_path":"src/db/migrations/007_add_session_index.sql","content":"CREATE INDEX idx_user_sessions_user_id ON user_sessions(user_id);\nCREATE INDEX idx_user_sessions_expires_at ON user_sessions(expires_at);"}}]}}
+{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_15b","content":"File written successfully"}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"toolu_15c","name":"Bash","input":{"command":"cd /repo && go test ./src/auth/... ./src/db/..."}}]}}
+{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_15c","content":"ok  \tgithub.com/demo/app/src/auth\t2.103s\nok  \tgithub.com/demo/app/src/db\t1.340s\n\nPASS"}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"toolu_15d","name":"Bash","input":{"command":"cd /repo && git add -A && git commit -m \"feat: optimize auth queries with index on user_sessions\""}}]}}
+{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_15d","content":"[main def5678] feat: optimize auth queries with index on user_sessions\n 2 files changed, 14 insertions(+)"}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"toolu_15e","name":"Bash","input":{"command":"bd close beads-113 --notes \"Added index on user_sessions.user_id, 80% query speedup\""}}]}}
+{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_15e","content":"Task beads-113 closed successfully."}]}}
+{"type":"assistant","message":{"content":[{"type":"text","text":"[Ralph status]\nready_before: 2\nready_after: 1\ntask: DEMO-113\ntests: PASSED\nnotes: Added index on user_sessions.user_id, 80% query speedup\n\nOne task remaining in epic DEMO-1."}]}}
+{"type":"result","subtype":"success","is_error":false,"duration_ms":202000,"num_turns":8}`
 }
 
 // applyCompletedAll: iteration=12/50, loopDone=true, all tasks done
@@ -412,6 +463,21 @@ Summary:
 - 1 retry after initial failure
 - All tests passing
 - Documentation updated`
+	m.rawOutputLog = `{"type":"assistant","message":{"content":[{"type":"text","text":"Working on the final task DEMO-111: cleanup and documentation. Let me review what needs tidying up."}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"toolu_12a","name":"Glob","input":{"pattern":"src/**/*.go"}}]}}
+{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_12a","content":"src/auth/handler.go\nsrc/auth/middleware.go\nsrc/auth/queries.go\nsrc/db/connection.go\nsrc/db/migrations.go\nsrc/rbac/middleware.go\nsrc/session/cleanup.go\nsrc/session/manager.go"}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"toolu_12b","name":"Bash","input":{"command":"cd /repo && goimports -l ./src/..."}}]}}
+{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_12b","content":"src/auth/handler.go\nsrc/session/manager.go"}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"toolu_12c","name":"Bash","input":{"command":"cd /repo && goimports -w ./src/auth/handler.go ./src/session/manager.go"}}]}}
+{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_12c","content":""}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"toolu_12d","name":"Bash","input":{"command":"cd /repo && go test ./..."}}]}}
+{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_12d","content":"ok  \tgithub.com/demo/app/src/auth\t1.892s\nok  \tgithub.com/demo/app/src/db\t0.943s\nok  \tgithub.com/demo/app/src/rbac\t1.104s\nok  \tgithub.com/demo/app/src/session\t0.812s\n\nPASS"}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"toolu_12e","name":"Bash","input":{"command":"cd /repo && git add -A && git commit -m \"chore: final cleanup — remove unused imports, add README\""}}]}}
+{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_12e","content":"[main ghi9012] chore: final cleanup — remove unused imports, add README\n 4 files changed, 52 insertions(+), 8 deletions(-)"}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"toolu_12f","name":"Bash","input":{"command":"bd close beads-111 --notes \"Final cleanup and documentation\""}}]}}
+{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_12f","content":"Task beads-111 closed successfully."}]}}
+{"type":"assistant","message":{"content":[{"type":"text","text":"[Ralph status]\nready_before: 1\nready_after: 0\ntask: DEMO-111\ntests: PASSED\nnotes: Added comprehensive README and cleaned up unused imports\n\n<promise>COMPLETE</promise>\n\nAll tasks in epic DEMO-1 are now closed. No remaining work."}]}}
+{"type":"result","subtype":"success","is_error":false,"duration_ms":224000,"num_turns":10}`
 }
 
 // applyCompletedMax: iteration=50/50, max iter reached, 3 remaining
@@ -510,4 +576,17 @@ Stopping due to max iterations (50).
 Remaining work: 3 ready tasks in epic DEMO-1.
 
 Consider reviewing the 18 failed iterations to identify systematic issues.`
+	m.rawOutputLog = `{"type":"assistant","message":{"content":[{"type":"text","text":"This is iteration 50. Let me pick up the next ready task and implement it."}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"toolu_50a","name":"Bash","input":{"command":"bd list --epic DEMO-1 --status ready"}}]}}
+{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_50a","content":"DEMO-137  Add webhook retry logic  [ready]\nDEMO-138  Implement batch processing  [ready]\nDEMO-139  Add health check endpoint  [ready]"}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"toolu_50b","name":"Read","input":{"file_path":"src/api/routes.go"}}]}}
+{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_50b","content":"package api\n\nimport \"net/http\"\n\nfunc SetupRoutes(mux *http.ServeMux) {\n\tmux.HandleFunc(\"/api/v1/users\", handleUsers)\n\tmux.HandleFunc(\"/api/v1/sessions\", handleSessions)\n}"}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"toolu_50c","name":"Write","input":{"file_path":"src/api/health.go","content":"package api\n\nimport (\n\t\"encoding/json\"\n\t\"net/http\"\n)\n\nfunc handleHealth(w http.ResponseWriter, r *http.Request) {\n\tjson.NewEncoder(w).Encode(map[string]string{\"status\": \"healthy\"})\n}"}}]}}
+{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_50c","content":"File written successfully"}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"toolu_50d","name":"Bash","input":{"command":"cd /repo && go test ./..."}}]}}
+{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_50d","content":"ok  \tgithub.com/demo/app/src/api\t1.456s\nok  \tgithub.com/demo/app/src/auth\t1.892s\nok  \tgithub.com/demo/app/src/db\t0.943s\n\nPASS"}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"toolu_50e","name":"Bash","input":{"command":"cd /repo && git add -A && git commit -m \"feat: add health check endpoint\""}}]}}
+{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_50e","content":"[main jkl3456] feat: add health check endpoint\n 2 files changed, 18 insertions(+)"}]}}
+{"type":"assistant","message":{"content":[{"type":"text","text":"[Ralph status]\nready_before: 4\nready_after: 3\ntask: DEMO-139\ntests: PASSED\nnotes: Implemented task but iteration limit reached"}]}}
+{"type":"result","subtype":"success","is_error":false,"duration_ms":318000,"num_turns":9}`
 }
