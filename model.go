@@ -144,6 +144,8 @@ type model struct {
 	reviewerFeedback  string // stored between reviewer → fixer
 	currentTaskID     string
 	currentTaskTitle  string
+	activityLines     []string // live activity feed (last ~6 key events)
+	graphOutput       string   // dependency graph from preflight
 
 	// Reporting
 	reporter      Reporter
@@ -257,6 +259,15 @@ func (m *model) appendOutput(s string) {
 		if m.followOutput {
 			m.outputVP.GotoBottom()
 		}
+	}
+}
+
+const maxActivityLines = 6
+
+func (m *model) appendActivity(line string) {
+	m.activityLines = append(m.activityLines, line)
+	if len(m.activityLines) > maxActivityLines {
+		m.activityLines = m.activityLines[len(m.activityLines)-maxActivityLines:]
 	}
 }
 
